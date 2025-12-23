@@ -1,0 +1,67 @@
+{
+  "name": "@jacobkanfer/olm-parser",
+  "version": "1.0.0",
+  "description": "A powerful library for parsing email archives (OLM, MBOX) and detecting accounts, purchases, subscriptions, and newsletters",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "olm",
+    "mbox",
+    "email",
+    "parser",
+    "outlook",
+    "gmail",
+    "thunderbird",
+    "archive",
+    "email-parser",
+    "account-detection",
+    "purchase-detection"
+  ],
+  "author": "Jacob Kanfer",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jacobkanfer/olm-parser.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jacobkanfer/olm-parser/issues"
+  },
+  "homepage": "https://github.com/jacobkanfer/olm-parser#readme",
+  "dependencies": {
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
+
