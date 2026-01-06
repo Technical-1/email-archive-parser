@@ -117,10 +117,18 @@ export class MBOXParser {
     let text: string;
     if (file instanceof File) {
       text = await file.text();
+    } else if (typeof Blob !== 'undefined' && file instanceof Blob) {
+      // Handle Blob (browser)
+      text = await file.text();
     } else if (Buffer.isBuffer(file)) {
       text = file.toString('utf-8');
-    } else {
+    } else if (file instanceof ArrayBuffer) {
       text = new TextDecoder().decode(file);
+    } else if (ArrayBuffer.isView(file)) {
+      text = new TextDecoder().decode(file);
+    } else {
+      // Fallback: try to convert to string
+      text = String(file);
     }
 
     // Normalize line endings
@@ -699,13 +707,29 @@ export class MBOXParser {
       let htmlBody: string | undefined;
 
       if (contentType.includes('multipart/')) {
-        // Extract boundary from content-type
-        const boundaryMatch = contentType.match(/boundary=["']?([^"';\s]+)["']?/i);
+        // Extract boundary from content-type (handle quoted and unquoted)
+        const boundaryMatch = contentType.match(/boundary="([^"]+)"/i) || 
+                              contentType.match(/boundary='([^']+)'/i) ||
+                              contentType.match(/boundary=([^\s;]+)/i);
         if (boundaryMatch) {
           const boundary = boundaryMatch[1];
           const parts = this.parseMimeParts(rawBody, boundary);
           body = parts.text || '';
           htmlBody = parts.html;
+          
+          // Fallback: if no text/html parts found, try raw body
+          if (!body && !htmlBody && rawBody.length > 0) {
+            // Check if there's visible content after stripping MIME boundaries
+            const stripped = rawBody
+              .replace(/--[^\n]+\n/g, '')
+              .replace(/Content-Type:[^\n]+\n/gi, '')
+              .replace(/Content-Transfer-Encoding:[^\n]+\n/gi, '')
+              .replace(/Content-Disposition:[^\n]+\n/gi, '')
+              .trim();
+            if (stripped.length > 20) {
+              body = stripped;
+            }
+          }
         } else {
           body = rawBody;
         }
@@ -756,7 +780,24 @@ export class MBOXParser {
       const isStarred = gmailLabels.toLowerCase().includes('starred');
       const labels = this.parseGmailLabels(gmailLabels);
 
+      // Validate this is a real email, not a MIME attachment part
       if (!sender && !subject) {
+        return null;
+      }
+
+      // Skip if sender looks invalid (no @ sign and not a known pattern)
+      if (!sender || (!sender.includes('@') && sender !== 'unknown')) {
+        return null;
+      }
+
+      // Skip if body looks like binary/base64 image data (JPEG, PNG, etc.)
+      const trimmedBody = body.trim();
+      if (this.looksLikeBinaryData(trimmedBody)) {
+        return null;
+      }
+
+      // Skip if subject is default and body is mostly non-printable
+      if (subject === '(No Subject)' && this.hasMostlyNonPrintable(trimmedBody)) {
         return null;
       }
 
@@ -766,7 +807,7 @@ export class MBOXParser {
         senderName: senderName || undefined,
         recipients,
         date: date || new Date(),
-        body: body.trim() || (htmlBody ? this.stripHtml(htmlBody) : ''),
+        body: trimmedBody || (htmlBody ? this.stripHtml(htmlBody) : ''),
         htmlBody,
         attachments: [],
         size: Math.min(lines.join('\n').length, 100000), // Cap size calculation
@@ -896,17 +937,24 @@ export class MBOXParser {
   private parseMimeParts(body: string, boundary: string): { text?: string; html?: string } {
     const result: { text?: string; html?: string } = {};
 
+    // Normalize line endings before processing
+    const normalizedBody = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const boundaryMarker = '--' + boundary;
-    const parts = body.split(boundaryMarker);
+    const parts = normalizedBody.split(boundaryMarker);
 
     for (const part of parts) {
       if (!part.trim() || part.trim() === '--') continue;
 
-      const headerEndIndex = part.indexOf('\n\n');
-      if (headerEndIndex === -1) continue;
+      // Look for double newline (header/body separator)
+      let headerEndIndex = part.indexOf('\n\n');
+      if (headerEndIndex === -1) {
+        // Try with single newline followed by content (malformed but common)
+        headerEndIndex = part.indexOf('\n');
+        if (headerEndIndex === -1) continue;
+      }
 
       const partHeaders = part.substring(0, headerEndIndex);
-      let partContent = part.substring(headerEndIndex + 2);
+      let partContent = part.substring(headerEndIndex).replace(/^\n+/, ''); // Remove leading newlines
 
       const contentTypeMatch = partHeaders.match(/content-type:\s*([^;\n]+)/i);
       const encodingMatch = partHeaders.match(/content-transfer-encoding:\s*(\S+)/i);
@@ -992,6 +1040,59 @@ export class MBOXParser {
       .replace(/&#39;/g, "'")
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  /**
+   * Check if content looks like binary/base64 image data
+   */
+  private looksLikeBinaryData(content: string): boolean {
+    if (!content || content.length < 20) return false;
+    
+    const first100 = content.substring(0, 100);
+    
+    // JPEG markers
+    if (first100.includes('JFIF') || first100.includes('Exif')) return true;
+    
+    // Base64 encoded JPEG (/9j/)
+    if (first100.startsWith('/9j/')) return true;
+    
+    // PNG marker
+    if (first100.includes('PNG') && first100.includes('\x89')) return true;
+    
+    // Base64 encoded PNG (iVBOR)
+    if (first100.startsWith('iVBOR')) return true;
+    
+    // GIF marker
+    if (first100.startsWith('GIF8')) return true;
+    
+    // Check for high concentration of base64-like patterns with no spaces
+    const noSpaceContent = first100.replace(/\s/g, '');
+    if (noSpaceContent.length > 50 && /^[A-Za-z0-9+/=]+$/.test(noSpaceContent)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Check if content has mostly non-printable characters
+   */
+  private hasMostlyNonPrintable(content: string): boolean {
+    if (!content || content.length < 10) return false;
+    
+    const sample = content.substring(0, 200);
+    let nonPrintable = 0;
+    
+    for (let i = 0; i < sample.length; i++) {
+      const code = sample.charCodeAt(i);
+      // Count characters outside normal printable ASCII range (and common Unicode)
+      if ((code < 32 || code > 126) && code !== 10 && code !== 13 && code !== 9 && code < 160) {
+        nonPrintable++;
+      }
+    }
+    
+    // If more than 30% is non-printable, it's likely binary
+    return nonPrintable / sample.length > 0.3;
   }
 
   private parseEmailAddress(str: string): { email: string; name?: string } {

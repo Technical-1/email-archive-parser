@@ -21,10 +21,11 @@
 Email Archive Parser is a powerful, modern TypeScript library that goes beyond simple email parsing. It intelligently analyzes your email archives to extract:
 
 ### 📧 **Email Archive Parsing**
-- **OLM Files** - Outlook for Mac archives (`.olm`)
+- **OLM Files** - Outlook for Mac archives (`.olm`) with contacts & calendar events
 - **MBOX Files** - Gmail Takeout, Thunderbird, Apple Mail (`.mbox`)
-- **Streaming Processing** - Handle files up to 2GB+ without memory issues
-- **Gmail Labels** - Automatic label-to-folder mapping
+- **Unlimited File Sizes** - Stream processing handles multi-GB files (tested with 2.4GB+)
+- **Gmail Labels** - Automatic label extraction (Inbox, Starred, Categories, etc.)
+- **Contact Extraction** - Automatically builds contact list from email senders
 - **MIME Support** - Parse multipart emails, attachments, HTML content
 
 ### 🧠 **Intelligent Detection Engines**
@@ -181,6 +182,68 @@ pnpm add @jacobkanfer/email-archive-parser
 ---
 
 ## 🚀 Quick Start
+
+### ⚡ Simplest Possible Integration (Copy & Paste)
+
+**React / Next.js / Vite:**
+```tsx
+import { parseArchive } from '@jacobkanfer/email-archive-parser';
+
+// In your component:
+const handleUpload = async (e) => {
+  const file = e.target.files[0];
+  const result = await parseArchive(file);
+  console.log(result.emails); // Your emails!
+};
+
+return <input type="file" accept=".olm,.mbox" onChange={handleUpload} />;
+```
+
+**Vanilla JavaScript:**
+```html
+<input type="file" id="upload" accept=".olm,.mbox">
+<script type="module">
+  import { parseArchive } from '@jacobkanfer/email-archive-parser';
+  
+  document.getElementById('upload').onchange = async (e) => {
+    const result = await parseArchive(e.target.files[0]);
+    console.log(result.emails); // Your emails!
+  };
+</script>
+```
+
+**Node.js (for any file size):**
+```typescript
+import { MBOXParser, OLMParser } from '@jacobkanfer/email-archive-parser';
+
+// Parse a 5GB MBOX file with streaming - no memory issues!
+const parser = new MBOXParser();
+const result = await parser.parseFile('/path/to/huge-archive.mbox');
+console.log(result.emails);
+```
+
+---
+
+### 🌐 Building a Web App? Use the React Demo!
+
+For **production web applications**, check out our complete React implementation in [`examples/react-demo/`](./examples/react-demo/). It includes:
+
+- ✅ **IndexedDB storage** - Handles files of any size without memory issues
+- ✅ **Streaming parsing** - Saves to database during parsing, not after
+- ✅ **Ready-to-use components** - EmailList, EmailDetail, ContactList, CalendarList
+- ✅ **Custom React hook** - `useEmailDB` for all database operations
+- ✅ **Tailwind CSS styling** - Modern, responsive UI
+
+```bash
+# Try it out
+cd examples/react-demo
+npm install
+npm run dev
+```
+
+**Lift and shift** the `src/` folder into your own React/Next.js/Vite project!
+
+---
 
 ### One-Line Archive Analysis
 
@@ -382,9 +445,13 @@ import { OLMParser } from '@jacobkanfer/email-archive-parser';
 
 const parser = new OLMParser();
 
-// Parse OLM file
+// Browser: Parse from File object
 const result = await parser.parse(olmFile, {
-  detectAccounts: true,
+  onProgress: (p) => console.log(p.message)
+});
+
+// Node.js: Parse from file path
+const result = await parser.parseFile('/path/to/archive.olm', {
   onProgress: (p) => console.log(p.message)
 });
 
@@ -397,6 +464,7 @@ if (OLMParser.isOLMFile(file)) {
 **Features:**
 - Full OLM archive parsing
 - Email, contact, and calendar extraction
+- **Automatic contact extraction from email senders**
 - XML-based message parsing
 - Automatic content type detection
 
@@ -407,8 +475,13 @@ import { MBOXParser } from '@jacobkanfer/email-archive-parser';
 
 const parser = new MBOXParser();
 
-// Standard parsing (auto-detects if streaming needed)
+// Browser: Parse from File object (any size)
 const result = await parser.parse(mboxFile, options);
+
+// Node.js: Parse from file path with TRUE STREAMING (handles multi-GB files!)
+const result = await parser.parseFile('/path/to/huge-archive.mbox', {
+  onProgress: (p) => console.log(`${p.progress}%: ${p.message}`)
+});
 
 // Streaming for large files (>20MB)
 const totalCount = await parser.parseStreaming(
@@ -1263,6 +1336,43 @@ npm test
 ## 🔐 Privacy
 
 This library processes all data **locally**. No email content is ever sent to external servers.
+
+---
+
+## 📁 Examples
+
+The `/examples` directory contains ready-to-use code samples:
+
+| Example | Description |
+|---------|-------------|
+| `react-demo/` | **Complete React app** - Lift and shift into your project! |
+| `quick-start-react.tsx` | Simple React component for quick integration |
+| `basic-usage.ts` | General usage patterns for both formats |
+| `olm-usage.ts` | Outlook-specific features |
+| `mbox-usage.ts` | Gmail-specific features |
+| `with-detectors.ts` | Detection examples |
+
+### React Demo (Recommended)
+
+A complete React application with IndexedDB storage that handles files of any size:
+
+```bash
+cd examples/react-demo
+npm install
+npm run dev
+```
+
+Features:
+- 📧 Parse OLM and MBOX files of any size
+- 💾 IndexedDB storage (no memory limits)
+- 🔍 Search and pagination
+- 📬 Email detail view
+- 👥 Contacts list
+- 📅 Calendar events
+- 🗑️ Clear data button
+- 🎨 Tailwind CSS styling
+
+Copy the `src/` folder into your React project to use!
 
 ---
 

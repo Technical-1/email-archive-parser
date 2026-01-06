@@ -33,4 +33,12 @@ pnpm-lock.yaml
 # Test Files
 *.olm
 *.mbox
-test-real-files.ts
+
+# Debug files
+debug-*.ts
+
+# Tarballs
+*.tgz
+
+# React demo dependencies (installed locally)
+examples/react-demo/node_modules/
