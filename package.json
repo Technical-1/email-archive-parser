@@ -1,6 +1,6 @@
 {
   "name": "@technical-1/email-archive-parser",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "A powerful library for parsing email archives (OLM, MBOX) and detecting accounts, purchases, subscriptions, and newsletters",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
