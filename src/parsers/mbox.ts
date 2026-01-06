@@ -3,7 +3,7 @@
  * @packageDocumentation
  */
 
-import type { Email, ParseOptions, ParseResult, ParseProgress } from '../types';
+import type { Email, ParseOptions, ParseResult, ParseProgress, Contact } from '../types';
 import {
   cleanEmailAddress,
   normalizeSubject,
@@ -17,21 +17,41 @@ import {
 export type EmailBatchCallback = (emails: Omit<Email, 'id'>[], batchNumber: number) => Promise<void>;
 
 /**
+ * Extended options for MBOX parsing
+ */
+export interface MBOXParseOptions extends ParseOptions {
+  /** 
+   * If true, also extract contacts from email senders
+   * @default true
+   */
+  extractContacts?: boolean;
+}
+
+/**
  * Parser for MBOX email archive format
  * Compatible with Gmail Takeout, Mozilla Thunderbird, and other email clients
  * 
  * Features:
- * - Streaming/chunked processing for large files
+ * - Streaming/chunked processing for large files (including multi-GB files)
+ * - Automatic file path support in Node.js with streaming
  * - MIME multipart parsing
  * - Gmail label support
  * - Multi-encoding support (quoted-printable, base64)
+ * - Contact extraction from email senders
  *
  * @example
  * ```typescript
- * import { MBOXParser } from '@jacobkanfer/olm-parser';
+ * import { MBOXParser } from '@jacobkanfer/email-archive-parser';
  *
  * const parser = new MBOXParser();
+ * 
+ * // Browser usage with File object
  * const result = await parser.parse(file, {
+ *   onProgress: (progress) => console.log(progress.message),
+ * });
+ * 
+ * // Node.js usage with file path (handles any file size)
+ * const result = await parser.parseFile('/path/to/archive.mbox', {
  *   onProgress: (progress) => console.log(progress.message),
  * });
  *
@@ -41,6 +61,7 @@ export type EmailBatchCallback = (emails: Omit<Email, 'id'>[], batchNumber: numb
 export class MBOXParser {
   private readonly CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
   private readonly BATCH_SIZE = 100; // Process 100 emails at a time
+  private readonly NODE_CHUNK_SIZE = 100 * 1024 * 1024; // 100MB chunks for Node.js streaming
 
   /**
    * Parse an MBOX file
@@ -72,6 +93,18 @@ export class MBOXParser {
     // For File objects, use streaming for large files
     if (file instanceof File && file.size > 20 * 1024 * 1024) {
       const count = await this.parseStreaming(file, onProgress, async (batch) => {
+        result.emails.push(...(batch as Email[]));
+      });
+      result.stats.emailCount = count;
+      return result;
+    }
+
+    // Check for large buffers that exceed Node.js string limit (~512MB)
+    const MAX_STRING_SIZE = 500 * 1024 * 1024; // 500MB to be safe
+    if (Buffer.isBuffer(file) && file.length > MAX_STRING_SIZE) {
+      // Process large buffer in chunks
+      this.reportProgress(onProgress, 'extracting', 0, 'Processing large MBOX file in chunks...');
+      const count = await this.parseLargeBuffer(file, onProgress, async (batch) => {
         result.emails.push(...(batch as Email[]));
       });
       result.stats.emailCount = count;
@@ -146,6 +179,12 @@ export class MBOXParser {
       }
     }
 
+    // Extract contacts from email senders
+    const mboxOptions = options as MBOXParseOptions;
+    if (mboxOptions.extractContacts !== false) {
+      this.extractContactsFromEmails(result);
+    }
+
     this.reportProgress(
       onProgress,
       'complete',
@@ -154,6 +193,165 @@ export class MBOXParser {
     );
 
     return result;
+  }
+
+  /**
+   * Parse an MBOX file from a file path (Node.js only)
+   * Uses true streaming for any file size - no memory limits
+   * 
+   * @param filePath - Path to the MBOX file
+   * @param options - Parsing options
+   * @returns Parsed data
+   * 
+   * @example
+   * ```typescript
+   * // Parse a multi-gigabyte MBOX file efficiently
+   * const result = await parser.parseFile('/path/to/large.mbox', {
+   *   onProgress: (p) => console.log(`${p.progress}%: ${p.message}`),
+   * });
+   * ```
+   */
+  async parseFile(
+    filePath: string,
+    options: MBOXParseOptions = {}
+  ): Promise<ParseResult> {
+    const { onProgress } = options;
+
+    // Dynamic import of Node.js modules
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const result: ParseResult = {
+      emails: [],
+      contacts: [],
+      calendarEvents: [],
+      stats: {
+        emailCount: 0,
+        contactCount: 0,
+        calendarEventCount: 0,
+        accountCount: 0,
+        purchaseCount: 0,
+        subscriptionCount: 0,
+        newsletterCount: 0,
+      },
+    };
+
+    // Get file size
+    const stats = fs.statSync(filePath);
+    const fileSize = stats.size;
+    const fileSizeMB = (fileSize / 1024 / 1024).toFixed(1);
+
+    this.reportProgress(
+      onProgress,
+      'extracting',
+      0,
+      `Opening ${fileSizeMB}MB file: ${path.basename(filePath)}`
+    );
+
+    // Create read stream with 100MB chunks
+    const stream = fs.createReadStream(filePath, {
+      highWaterMark: this.NODE_CHUNK_SIZE,
+      encoding: 'utf-8',
+    });
+
+    let leftover = '';
+    let bytesRead = 0;
+    let totalEmailsParsed = 0;
+
+    for await (const chunk of stream) {
+      const chunkStr = chunk as string;
+      bytesRead += Buffer.byteLength(chunkStr, 'utf-8');
+
+      const textToProcess = leftover + chunkStr;
+      const lastFromIndex = this.findLastFromLine(textToProcess);
+
+      let processableText: string;
+      if (lastFromIndex > 0 && bytesRead < fileSize) {
+        processableText = textToProcess.substring(0, lastFromIndex);
+        leftover = textToProcess.substring(lastFromIndex);
+      } else {
+        processableText = textToProcess;
+        leftover = '';
+      }
+
+      // Parse emails from this chunk
+      const chunkEmails = this.parseEmailsFromText(processableText);
+      
+      for (const email of chunkEmails) {
+        result.emails.push(email as Email);
+        totalEmailsParsed++;
+      }
+
+      const progress = Math.round((bytesRead / fileSize) * 95);
+      this.reportProgress(
+        onProgress,
+        'parsing_emails',
+        progress,
+        `Parsed ${totalEmailsParsed} emails (${Math.round((bytesRead / fileSize) * 100)}% read)...`
+      );
+    }
+
+    // Process remaining text
+    if (leftover.trim()) {
+      const finalEmails = this.parseEmailsFromText(leftover);
+      for (const email of finalEmails) {
+        result.emails.push(email as Email);
+        totalEmailsParsed++;
+      }
+    }
+
+    result.stats.emailCount = totalEmailsParsed;
+
+    // Extract contacts from email senders
+    if (options.extractContacts !== false) {
+      this.extractContactsFromEmails(result);
+    }
+
+    this.reportProgress(
+      onProgress,
+      'complete',
+      100,
+      `Parsed ${totalEmailsParsed} emails successfully`
+    );
+
+    return result;
+  }
+
+  /**
+   * Extract contacts from email senders
+   */
+  private extractContactsFromEmails(result: ParseResult): void {
+    const senderMap = new Map<string, { name: string; emailCount: number; lastEmailDate: Date }>();
+
+    for (const email of result.emails) {
+      if (email.sender && email.sender !== 'unknown@example.com') {
+        const existing = senderMap.get(email.sender);
+        if (existing) {
+          existing.emailCount++;
+          if (email.date > existing.lastEmailDate) {
+            existing.lastEmailDate = email.date;
+          }
+        } else {
+          senderMap.set(email.sender, {
+            name: email.senderName || email.sender.split('@')[0] || 'Unknown',
+            emailCount: 1,
+            lastEmailDate: email.date,
+          });
+        }
+      }
+    }
+
+    // Add contacts
+    for (const [email, data] of senderMap) {
+      result.contacts.push({
+        name: data.name,
+        email: cleanEmailAddress(email),
+        phone: undefined,
+        emailCount: data.emailCount,
+        lastEmailDate: data.lastEmailDate,
+      } as Contact);
+      result.stats.contactCount++;
+    }
   }
 
   /**
@@ -237,6 +435,108 @@ export class MBOXParser {
 
       // Yield to prevent UI blocking
       await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    // Process remaining text
+    if (leftover.trim()) {
+      const finalEmails = this.parseEmailsFromText(leftover);
+      for (const email of finalEmails) {
+        currentBatch.push(email);
+      }
+    }
+
+    // Process final batch
+    if (currentBatch.length > 0 && onBatch) {
+      await onBatch(currentBatch, batchNumber);
+      totalEmailsParsed += currentBatch.length;
+    }
+
+    this.reportProgress(
+      onProgress,
+      'complete',
+      100,
+      `Parsed ${totalEmailsParsed} emails successfully`
+    );
+
+    return totalEmailsParsed;
+  }
+
+  /**
+   * Parse a large Buffer in chunks to avoid Node.js string size limits
+   * @param buffer - Buffer to parse
+   * @param onProgress - Progress callback
+   * @param onBatch - Callback for each batch of parsed emails
+   * @returns Total number of emails parsed
+   */
+  private async parseLargeBuffer(
+    buffer: Buffer,
+    onProgress?: (progress: ParseProgress) => void,
+    onBatch?: EmailBatchCallback
+  ): Promise<number> {
+    const bufferSize = buffer.length;
+    // Use 100MB chunks to stay well under the 512MB string limit
+    const CHUNK_SIZE = 100 * 1024 * 1024;
+    let offset = 0;
+    let leftover = '';
+    let totalEmailsParsed = 0;
+    let currentBatch: Omit<Email, 'id'>[] = [];
+    let batchNumber = 0;
+
+    this.reportProgress(
+      onProgress,
+      'extracting',
+      0,
+      `Processing large ${(bufferSize / 1024 / 1024).toFixed(1)}MB file in chunks...`
+    );
+
+    while (offset < bufferSize) {
+      const chunkEnd = Math.min(offset + CHUNK_SIZE, bufferSize);
+      const chunk = buffer.subarray(offset, chunkEnd);
+
+      let chunkText: string;
+      try {
+        chunkText = chunk.toString('utf-8');
+      } catch (e) {
+        console.error('Error reading buffer chunk:', e);
+        break;
+      }
+
+      const textToProcess = leftover + chunkText;
+      const lastFromIndex = this.findLastFromLine(textToProcess);
+
+      let processableText: string;
+      if (lastFromIndex > 0 && chunkEnd < bufferSize) {
+        processableText = textToProcess.substring(0, lastFromIndex);
+        leftover = textToProcess.substring(lastFromIndex);
+      } else {
+        processableText = textToProcess;
+        leftover = '';
+      }
+
+      // Parse emails from this chunk
+      const chunkEmails = this.parseEmailsFromText(processableText);
+
+      for (const email of chunkEmails) {
+        currentBatch.push(email);
+
+        if (currentBatch.length >= this.BATCH_SIZE) {
+          if (onBatch) {
+            await onBatch(currentBatch, batchNumber);
+          }
+          totalEmailsParsed += currentBatch.length;
+          batchNumber++;
+          currentBatch = [];
+        }
+      }
+
+      offset = chunkEnd;
+      const progress = Math.round((offset / bufferSize) * 95);
+      this.reportProgress(
+        onProgress,
+        'parsing_emails',
+        progress,
+        `Parsed ${totalEmailsParsed + currentBatch.length} emails (${Math.round((offset / bufferSize) * 100)}% read)...`
+      );
     }
 
     // Process remaining text
@@ -454,6 +754,7 @@ export class MBOXParser {
       const folderId = this.mapGmailLabelsToFolder(gmailLabels);
       const isRead = !gmailLabels.toLowerCase().includes('unread');
       const isStarred = gmailLabels.toLowerCase().includes('starred');
+      const labels = this.parseGmailLabels(gmailLabels);
 
       if (!sender && !subject) {
         return null;
@@ -473,6 +774,9 @@ export class MBOXParser {
         isStarred,
         folderId,
         threadId,
+        labels: labels.length > 0 ? labels : undefined,
+        messageId: headers['message-id'] || undefined,
+        hasAttachments: false, // Will be updated when parsing attachments
       };
     } catch (error) {
       console.warn('Failed to parse email:', error);

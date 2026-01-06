@@ -1,10 +1,14 @@
 /**
  * Basic Usage Example
  *
- * This example shows how to parse an OLM file and extract emails.
+ * This example shows how to parse email archives (OLM and MBOX) and extract emails.
+ * 
+ * Supported formats:
+ * - OLM: Outlook for Mac exports
+ * - MBOX: Gmail Takeout, Thunderbird, Apple Mail, and other email clients
  */
 
-import { parseArchive, OLMParser, MBOXParser } from '@jacobkanfer/olm-parser';
+import { parseArchive, OLMParser, MBOXParser } from '@jacobkanfer/email-archive-parser';
 
 // =============================================================================
 // Example 1: Using the convenience function (recommended)
@@ -78,24 +82,38 @@ async function parseWithIndividualParsers() {
 
 async function parseInNodeJS() {
   // Note: This won't run in browser, only in Node.js
-  const { readFileSync } = await import('fs');
+  const { readFileSync, writeFileSync } = await import('fs');
 
-  // Read the file as a buffer
-  const buffer = readFileSync('/path/to/archive.olm');
-
-  // Parse the buffer
-  const parser = new OLMParser();
-  const result = await parser.parse(buffer, {
+  // Example with OLM file
+  const olmBuffer = readFileSync('/path/to/archive.olm');
+  const olmParser = new OLMParser();
+  const olmResult = await olmParser.parse(olmBuffer, {
     onProgress: (progress) => {
-      process.stdout.write(`\r${progress.message}`);
+      process.stdout.write(`\r[OLM] ${progress.message}`);
     },
   });
+  console.log(`\nParsed ${olmResult.emails.length} emails from OLM`);
 
-  console.log(`\nParsed ${result.emails.length} emails`);
+  // Example with MBOX file (Gmail Takeout, Thunderbird, etc.)
+  const mboxBuffer = readFileSync('/path/to/gmail-export.mbox');
+  const mboxParser = new MBOXParser();
+  const mboxResult = await mboxParser.parse(mboxBuffer, {
+    onProgress: (progress) => {
+      process.stdout.write(`\r[MBOX] ${progress.message}`);
+    },
+  });
+  console.log(`\nParsed ${mboxResult.emails.length} emails from MBOX`);
+
+  // MBOX files from Gmail include labels
+  const gmailLabels = new Set<string>();
+  mboxResult.emails.forEach((email) => {
+    email.labels?.forEach((label) => gmailLabels.add(label));
+  });
+  console.log(`Found ${gmailLabels.size} unique Gmail labels`);
 
   // Save emails to JSON
-  const { writeFileSync } = await import('fs');
-  writeFileSync('emails.json', JSON.stringify(result.emails, null, 2));
+  writeFileSync('olm-emails.json', JSON.stringify(olmResult.emails, null, 2));
+  writeFileSync('mbox-emails.json', JSON.stringify(mboxResult.emails, null, 2));
 }
 
 // =============================================================================

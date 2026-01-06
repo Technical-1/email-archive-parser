@@ -19,7 +19,7 @@ import { cleanEmailAddress, normalizeSubject } from '../utils';
  * 
  * @example
  * ```typescript
- * import { OLMParser } from '@jacobkanfer/olm-parser';
+ * import { OLMParser } from '@jacobkanfer/email-archive-parser';
  * 
  * const parser = new OLMParser();
  * const result = await parser.parse(file, {
@@ -85,15 +85,16 @@ export class OLMParser {
           !zip.files[f].dir
       );
 
-      // Find calendar files
+      // Find calendar files - can be in /Calendar/ folder OR directly named Calendar.xml
       const calendarFiles = files.filter(
         (f) =>
-          f.includes('/Calendar/') &&
           f.endsWith('Calendar.xml') &&
           !zip.files[f].dir
       );
 
-      // Stage 2: Parse emails
+      // Stage 2: Parse emails and track contacts from senders
+      const senderContactMap = new Map<string, { name: string; emailCount: number; lastEmailDate: Date }>();
+      
       if (emailFiles.length > 0) {
         this.reportProgress(
           onProgress,
@@ -109,6 +110,23 @@ export class OLMParser {
             if (email) {
               result.emails.push(email as Email);
               result.stats.emailCount++;
+              
+              // Track contact from email sender
+              if (email.sender && email.sender !== 'unknown@example.com') {
+                const existing = senderContactMap.get(email.sender);
+                if (existing) {
+                  existing.emailCount++;
+                  if (email.date > existing.lastEmailDate) {
+                    existing.lastEmailDate = email.date;
+                  }
+                } else {
+                  senderContactMap.set(email.sender, {
+                    name: email.senderName || email.sender.split('@')[0] || 'Unknown',
+                    emailCount: 1,
+                    lastEmailDate: email.date,
+                  });
+                }
+              }
             }
           } catch (err) {
             // Skip malformed emails
@@ -125,7 +143,9 @@ export class OLMParser {
         }
       }
 
-      // Stage 3: Parse contacts
+      // Stage 3: Parse contacts from Address Book files
+      const existingContactEmails = new Set<string>();
+      
       if (contactFiles.length > 0) {
         this.reportProgress(onProgress, 'parsing_contacts', 0, 'Parsing contacts...');
 
@@ -133,8 +153,13 @@ export class OLMParser {
           try {
             const content = await zip.files[contactFiles[i]].async('string');
             const contacts = this.parseContactsXML(content);
-            result.contacts.push(...(contacts as Contact[]));
-            result.stats.contactCount += contacts.length;
+            for (const contact of contacts) {
+              result.contacts.push(contact as Contact);
+              result.stats.contactCount++;
+              if (contact.email) {
+                existingContactEmails.add(contact.email.toLowerCase());
+              }
+            }
           } catch (err) {
             // Skip malformed contacts
           }
@@ -142,11 +167,46 @@ export class OLMParser {
           this.reportProgress(
             onProgress,
             'parsing_contacts',
-            Math.round(((i + 1) / contactFiles.length) * 100),
-            `Parsed ${result.stats.contactCount} contacts`
+            Math.round(((i + 1) / contactFiles.length) * 50), // 0-50% for file contacts
+            `Parsed ${result.stats.contactCount} contacts from files`
           );
         }
       }
+      
+      // Add contacts from email senders (that aren't already in Address Book)
+      let senderContactsAdded = 0;
+      const totalSenderContacts = senderContactMap.size;
+      
+      for (const [email, data] of senderContactMap) {
+        if (!existingContactEmails.has(email.toLowerCase())) {
+          result.contacts.push({
+            name: data.name,
+            email: cleanEmailAddress(email),
+            phone: undefined,
+            emailCount: data.emailCount,
+            lastEmailDate: data.lastEmailDate,
+          } as Contact);
+          result.stats.contactCount++;
+          senderContactsAdded++;
+        }
+        
+        // Update progress for sender contacts (50-100%)
+        if (senderContactsAdded % 100 === 0) {
+          this.reportProgress(
+            onProgress,
+            'parsing_contacts',
+            50 + Math.round((senderContactsAdded / totalSenderContacts) * 50),
+            `Added ${senderContactsAdded} contacts from emails`
+          );
+        }
+      }
+      
+      this.reportProgress(
+        onProgress,
+        'parsing_contacts',
+        100,
+        `Parsed ${result.stats.contactCount} total contacts`
+      );
 
       // Stage 4: Parse calendar events
       if (calendarFiles.length > 0) {
@@ -179,6 +239,31 @@ export class OLMParser {
         `Failed to parse OLM file: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
+  }
+
+  /**
+   * Parse an OLM file from a file path (Node.js only)
+   * 
+   * @param filePath - Path to the OLM file
+   * @param options - Parsing options
+   * @returns Parsed data
+   * 
+   * @example
+   * ```typescript
+   * const result = await parser.parseFile('/path/to/archive.olm', {
+   *   onProgress: (p) => console.log(`${p.progress}%: ${p.message}`),
+   * });
+   * ```
+   */
+  async parseFile(
+    filePath: string,
+    options: ParseOptions = {}
+  ): Promise<ParseResult> {
+    // Dynamic import of Node.js fs module
+    const fs = await import('fs');
+    
+    const buffer = fs.readFileSync(filePath);
+    return this.parse(buffer, options);
   }
 
   private reportProgress(
@@ -355,58 +440,107 @@ export class OLMParser {
     const contacts: Omit<Contact, 'id'>[] = [];
 
     if (typeof DOMParser !== 'undefined') {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(xmlContent, 'text/xml');
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlContent, 'text/xml');
 
-      const contactElements = doc.querySelectorAll('contact');
+        const contactElements = doc.querySelectorAll('contact');
 
-      contactElements.forEach((contactElement) => {
-        const getTextContent = (selectors: string[]): string => {
-          for (const selector of selectors) {
-            const element = contactElement.querySelector(selector);
-            if (element?.textContent) {
-              return element.textContent.trim();
+        contactElements.forEach((contactElement) => {
+          const getTextContent = (selectors: string[]): string => {
+            for (const selector of selectors) {
+              const element = contactElement.querySelector(selector);
+              if (element?.textContent) {
+                return element.textContent.trim();
+              }
+            }
+            return '';
+          };
+
+          const displayName = getTextContent([
+            'OPFContactCopyDisplayName',
+            'displayName',
+            'name',
+          ]);
+          const firstName = getTextContent(['OPFContactCopyFirstName', 'firstName']);
+          const lastName = getTextContent(['OPFContactCopyLastName', 'lastName']);
+          const phone = getTextContent(['OPFContactCopyPhoneNumbers', 'phone']);
+
+          let email = '';
+          const emailList = contactElement.querySelector(
+            'OPFContactCopyEmailAddressList, OPFContactCopyDefaultEmailAddress'
+          );
+          if (emailList) {
+            const emailAddr = emailList.querySelector('contactEmailAddress');
+            if (emailAddr) {
+              email = emailAddr.getAttribute('OPFContactEmailAddressAddress') || '';
             }
           }
-          return '';
-        };
 
-        const displayName = getTextContent([
-          'OPFContactCopyDisplayName',
-          'displayName',
-          'name',
-        ]);
-        const firstName = getTextContent(['OPFContactCopyFirstName', 'firstName']);
-        const lastName = getTextContent(['OPFContactCopyLastName', 'lastName']);
-        const phone = getTextContent(['OPFContactCopyPhoneNumbers', 'phone']);
+          const name =
+            displayName ||
+            `${firstName} ${lastName}`.trim() ||
+            email.split('@')[0] ||
+            'Unknown';
 
-        let email = '';
-        const emailList = contactElement.querySelector(
-          'OPFContactCopyEmailAddressList, OPFContactCopyDefaultEmailAddress'
-        );
-        if (emailList) {
-          const emailAddr = emailList.querySelector('contactEmailAddress');
-          if (emailAddr) {
-            email = emailAddr.getAttribute('OPFContactEmailAddressAddress') || '';
+          if (email || name !== 'Unknown') {
+            contacts.push({
+              name,
+              email: cleanEmailAddress(email),
+              phone: phone || undefined,
+              emailCount: 0,
+              lastEmailDate: new Date(),
+            });
           }
-        }
+        });
 
-        const name =
-          displayName ||
-          `${firstName} ${lastName}`.trim() ||
-          email.split('@')[0] ||
-          'Unknown';
+        if (contacts.length > 0) return contacts;
+      } catch {
+        // Fall through to manual parsing
+      }
+    }
 
-        if (email || name !== 'Unknown') {
-          contacts.push({
-            name,
-            email: cleanEmailAddress(email),
-            phone: phone || undefined,
-            emailCount: 0,
-            lastEmailDate: new Date(),
-          });
-        }
-      });
+    // Manual parsing for Node.js or as fallback
+    return this.parseContactsManually(xmlContent);
+  }
+
+  private parseContactsManually(xmlContent: string): Omit<Contact, 'id'>[] {
+    const contacts: Omit<Contact, 'id'>[] = [];
+
+    // Match each <contact> element
+    const contactRegex = /<contact[^>]*>([\s\S]*?)<\/contact>/gi;
+    let match;
+
+    while ((match = contactRegex.exec(xmlContent)) !== null) {
+      const contactXml = match[1];
+
+      const getTag = (content: string, tag: string): string => {
+        const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i');
+        const m = content.match(regex);
+        return m ? m[1].trim() : '';
+      };
+
+      const displayName = getTag(contactXml, 'OPFContactCopyDisplayName') || 
+                          getTag(contactXml, 'displayName');
+      const firstName = getTag(contactXml, 'OPFContactCopyFirstName');
+      const lastName = getTag(contactXml, 'OPFContactCopyLastName');
+      const phone = getTag(contactXml, 'OPFContactCopyPhoneNumbers');
+
+      // Extract email from attribute
+      const emailMatch = contactXml.match(/OPFContactEmailAddressAddress="([^"]+)"/i);
+      const email = emailMatch ? emailMatch[1] : '';
+
+      const name = displayName || `${firstName} ${lastName}`.trim() || email.split('@')[0] || 'Unknown';
+
+      if (email || name !== 'Unknown') {
+        contacts.push({
+          name,
+          email: cleanEmailAddress(email),
+          phone: phone || undefined,
+          emailCount: 0,
+          lastEmailDate: new Date(),
+        });
+      }
     }
 
     return contacts;
@@ -416,70 +550,128 @@ export class OLMParser {
     const events: Omit<CalendarEvent, 'id'>[] = [];
 
     if (typeof DOMParser !== 'undefined') {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(xmlContent, 'text/xml');
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlContent, 'text/xml');
 
-      const appointmentElements = doc.querySelectorAll('appointment');
+        const appointmentElements = doc.querySelectorAll('appointment');
 
-      appointmentElements.forEach((appointmentElement) => {
-        const getTextContent = (selectors: string[]): string => {
-          for (const selector of selectors) {
-            const element = appointmentElement.querySelector(selector);
-            if (element?.textContent) {
-              return element.textContent.trim();
+        appointmentElements.forEach((appointmentElement) => {
+          const getTextContent = (selectors: string[]): string => {
+            for (const selector of selectors) {
+              const element = appointmentElement.querySelector(selector);
+              if (element?.textContent) {
+                return element.textContent.trim();
+              }
             }
-          }
-          return '';
-        };
+            return '';
+          };
 
-        const title = getTextContent([
-          'OPFCalendarEventCopySummary',
-          'OPFCalendarEventCopySubject',
-          'summary',
-          'title',
-        ]);
-        const startDateStr = getTextContent([
-          'OPFCalendarEventCopyStartTime',
-          'startTime',
-        ]);
-        const endDateStr = getTextContent([
-          'OPFCalendarEventCopyEndTime',
-          'endTime',
-        ]);
-        const location = getTextContent([
-          'OPFCalendarEventCopyLocation',
-          'location',
-        ]);
-        const description = getTextContent([
-          'OPFCalendarEventCopyBody',
-          'description',
-        ]);
-        const organizer = getTextContent([
-          'OPFCalendarEventCopyOrganizer',
-          'organizer',
-        ]);
-        const isAllDayStr = getTextContent([
+          const title = getTextContent([
+            'OPFCalendarEventCopySummary',
+            'OPFCalendarEventCopySubject',
+            'summary',
+            'title',
+          ]);
+          const startDateStr = getTextContent([
+            'OPFCalendarEventCopyStartTime',
+            'startTime',
+          ]);
+          const endDateStr = getTextContent([
+            'OPFCalendarEventCopyEndTime',
+            'endTime',
+          ]);
+          const location = getTextContent([
+            'OPFCalendarEventCopyLocation',
+            'location',
+          ]);
+          const description = getTextContent([
+            'OPFCalendarEventCopyBody',
+            'OPFCalendarEventCopyDescription',
+            'description',
+          ]);
+          const organizer = getTextContent([
+            'OPFCalendarEventCopyOrganizer',
+            'organizer',
+          ]);
+          const isAllDayStr = getTextContent([
           'OPFCalendarEventGetIsAllDayEvent',
           'isAllDay',
         ]);
 
-        if (!title) return;
+          if (!title) return;
 
-        const startDate = startDateStr ? new Date(startDateStr) : new Date();
-        const endDate = endDateStr
-          ? new Date(endDateStr)
-          : new Date(startDate.getTime() + 3600000);
+          const startDate = startDateStr ? new Date(startDateStr) : new Date();
+          const endDate = endDateStr
+            ? new Date(endDateStr)
+            : new Date(startDate.getTime() + 3600000);
 
-        events.push({
-          title,
-          startDate: isNaN(startDate.getTime()) ? new Date() : startDate,
-          endDate: isNaN(endDate.getTime()) ? new Date() : endDate,
-          location: location || undefined,
-          attendees: organizer ? [organizer] : [],
-          description: description || undefined,
-          isAllDay: isAllDayStr === '1' || isAllDayStr?.toLowerCase() === 'true',
-          reminder: false,
+          events.push({
+            title,
+            startDate: isNaN(startDate.getTime()) ? new Date() : startDate,
+            endDate: isNaN(endDate.getTime()) ? new Date() : endDate,
+            location: location || undefined,
+            attendees: organizer ? [organizer] : [],
+            description: description || undefined,
+            isAllDay: isAllDayStr === '1' || isAllDayStr?.toLowerCase() === 'true',
+            reminder: false,
+          });
         });
+
+        if (events.length > 0) return events;
+      } catch {
+        // Fall through to manual parsing
+      }
+    }
+
+    // Manual parsing for Node.js or as fallback
+    return this.parseCalendarManually(xmlContent);
+  }
+
+  private parseCalendarManually(xmlContent: string): Omit<CalendarEvent, 'id'>[] {
+    const events: Omit<CalendarEvent, 'id'>[] = [];
+
+    // Match each <appointment> element
+    const appointmentRegex = /<appointment[^>]*>([\s\S]*?)<\/appointment>/gi;
+    let match;
+
+    while ((match = appointmentRegex.exec(xmlContent)) !== null) {
+      const appointmentXml = match[1];
+
+      const getTag = (content: string, tag: string): string => {
+        const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i');
+        const m = content.match(regex);
+        return m ? m[1].trim() : '';
+      };
+
+      const title = getTag(appointmentXml, 'OPFCalendarEventCopySummary') ||
+                    getTag(appointmentXml, 'OPFCalendarEventCopySubject') ||
+                    getTag(appointmentXml, 'summary');
+      
+      if (!title) continue;
+
+      const startDateStr = getTag(appointmentXml, 'OPFCalendarEventCopyStartTime') ||
+                           getTag(appointmentXml, 'startTime');
+      const endDateStr = getTag(appointmentXml, 'OPFCalendarEventCopyEndTime') ||
+                         getTag(appointmentXml, 'endTime');
+      const location = getTag(appointmentXml, 'OPFCalendarEventCopyLocation');
+      const description = getTag(appointmentXml, 'OPFCalendarEventCopyBody') ||
+                          getTag(appointmentXml, 'OPFCalendarEventCopyDescription');
+      const organizer = getTag(appointmentXml, 'OPFCalendarEventCopyOrganizer');
+      const isAllDayStr = getTag(appointmentXml, 'OPFCalendarEventGetIsAllDayEvent');
+
+      const startDate = startDateStr ? new Date(startDateStr) : new Date();
+      const endDate = endDateStr ? new Date(endDateStr) : new Date(startDate.getTime() + 3600000);
+
+      events.push({
+        title,
+        startDate: isNaN(startDate.getTime()) ? new Date() : startDate,
+        endDate: isNaN(endDate.getTime()) ? new Date() : endDate,
+        location: location || undefined,
+        attendees: organizer ? [organizer] : [],
+        description: description || undefined,
+        isAllDay: isAllDayStr === '1' || isAllDayStr?.toLowerCase() === 'true',
+        reminder: false,
       });
     }
 

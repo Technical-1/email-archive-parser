@@ -30,3 +30,7 @@ coverage/
 yarn.lock
 pnpm-lock.yaml
 
+# Test Files
+*.olm
+*.mbox
+test-real-files.ts

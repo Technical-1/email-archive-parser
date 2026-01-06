@@ -61,6 +61,12 @@ export interface Email {
   threadId?: string;
   /** Original ID from the source archive */
   originalId?: string;
+  /** Message-ID header */
+  messageId?: string;
+  /** Labels/folders (from Gmail, etc.) */
+  labels?: string[];
+  /** Whether the email has attachments */
+  hasAttachments?: boolean;
 }
 
 /**

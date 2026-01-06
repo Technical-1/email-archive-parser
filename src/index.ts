@@ -5,7 +5,7 @@
  * accounts, purchases, subscriptions, and newsletters.
  *
  * @packageDocumentation
- * @module @jacobkanfer/olm-parser
+ * @module @jacobkanfer/email-archive-parser
  */
 
 // ============================================================================
@@ -95,7 +95,7 @@ import type { ParseOptions, ParseResult, Email } from './types';
  *
  * @example
  * ```typescript
- * import { parseArchive } from '@jacobkanfer/olm-parser';
+ * import { parseArchive } from '@jacobkanfer/email-archive-parser';
  *
  * // Browser
  * const input = document.querySelector('input[type="file"]');

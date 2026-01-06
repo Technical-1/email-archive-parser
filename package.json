@@ -1,6 +1,6 @@
 {
-  "name": "@jacobkanfer/olm-parser",
-  "version": "1.0.0",
+  "name": "@jacobkanfer/email-archive-parser",
+  "version": "2.0.0",
   "description": "A powerful library for parsing email archives (OLM, MBOX) and detecting accounts, purchases, subscriptions, and newsletters",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -42,12 +42,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jacobkanfer/olm-parser.git"
+    "url": "https://github.com/jacobkanfer/email-archive-parser.git"
   },
   "bugs": {
-    "url": "https://github.com/jacobkanfer/olm-parser/issues"
+    "url": "https://github.com/jacobkanfer/email-archive-parser/issues"
   },
-  "homepage": "https://github.com/jacobkanfer/olm-parser#readme",
+  "homepage": "https://github.com/jacobkanfer/email-archive-parser#readme",
   "dependencies": {
     "jszip": "^3.10.1"
   },
