@@ -2,9 +2,9 @@
 
 <div align="center">
 
-![npm](https://img.shields.io/npm/v/@technical-1/email-archive-parser?style=for-the-badge&color=blue)
+![npm](https://img.shields.io/npm/v/%40technical-1%2Femail-archive-parser?style=for-the-badge&color=blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![License](https://img.shields.io/npm/l/@technical-1/email-archive-parser?style=for-the-badge)
+![License](https://img.shields.io/npm/l/%40technical-1%2Femail-archive-parser?style=for-the-badge)
 
 **The most comprehensive TypeScript library for parsing email archives and extracting valuable insights.**
 
