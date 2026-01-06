@@ -19,7 +19,7 @@ import { cleanEmailAddress, normalizeSubject } from '../utils';
  * 
  * @example
  * ```typescript
- * import { OLMParser } from '@jacobkanfer/email-archive-parser';
+ * import { OLMParser } from '@technical-1/email-archive-parser';
  * 
  * const parser = new OLMParser();
  * const result = await parser.parse(file, {

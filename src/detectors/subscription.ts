@@ -17,7 +17,7 @@ import { stripHtml, extractDomain, formatDomainAsName } from '../utils';
  *
  * @example
  * ```typescript
- * import { SubscriptionDetector } from '@jacobkanfer/email-archive-parser';
+ * import { SubscriptionDetector } from '@technical-1/email-archive-parser';
  *
  * const detector = new SubscriptionDetector();
  * const result = detector.detect(email);

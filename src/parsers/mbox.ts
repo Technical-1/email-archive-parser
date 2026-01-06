@@ -41,7 +41,7 @@ export interface MBOXParseOptions extends ParseOptions {
  *
  * @example
  * ```typescript
- * import { MBOXParser } from '@jacobkanfer/email-archive-parser';
+ * import { MBOXParser } from '@technical-1/email-archive-parser';
  *
  * const parser = new MBOXParser();
  * 

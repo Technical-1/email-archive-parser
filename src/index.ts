@@ -5,7 +5,7 @@
  * accounts, purchases, subscriptions, and newsletters.
  *
  * @packageDocumentation
- * @module @jacobkanfer/email-archive-parser
+ * @module @technical-1/email-archive-parser
  */
 
 // ============================================================================
@@ -95,7 +95,7 @@ import type { ParseOptions, ParseResult, Email } from './types';
  *
  * @example
  * ```typescript
- * import { parseArchive } from '@jacobkanfer/email-archive-parser';
+ * import { parseArchive } from '@technical-1/email-archive-parser';
  *
  * // Browser
  * const input = document.querySelector('input[type="file"]');

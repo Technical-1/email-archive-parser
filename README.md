@@ -2,9 +2,9 @@
 
 <div align="center">
 
-![npm](https://img.shields.io/npm/v/@jacobkanfer/email-archive-parser?style=for-the-badge&color=blue)
+![npm](https://img.shields.io/npm/v/@technical-1/email-archive-parser?style=for-the-badge&color=blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![License](https://img.shields.io/npm/l/@jacobkanfer/email-archive-parser?style=for-the-badge)
+![License](https://img.shields.io/npm/l/@technical-1/email-archive-parser?style=for-the-badge)
 
 **The most comprehensive TypeScript library for parsing email archives and extracting valuable insights.**
 
@@ -57,7 +57,7 @@ Email Archive Parser is a powerful, modern TypeScript library that goes beyond s
 
 ### Personal Finance Management
 ```typescript
-import { parseArchive, PurchaseDetector } from '@jacobkanfer/email-archive-parser';
+import { parseArchive, PurchaseDetector } from '@technical-1/email-archive-parser';
 
 // Analyze spending patterns from Gmail export
 const result = await parseArchive(gmailExport, {
@@ -77,7 +77,7 @@ console.log('Monthly spending:', monthlySpending);
 
 ### Account Inventory & Security Audit
 ```typescript
-import { parseArchive, AccountDetector, SubscriptionDetector } from '@jacobkanfer/email-archive-parser';
+import { parseArchive, AccountDetector, SubscriptionDetector } from '@technical-1/email-archive-parser';
 
 // Complete account and subscription inventory
 const result = await parseArchive(emailArchive, {
@@ -95,7 +95,7 @@ console.log(`Found ${oldAccounts?.length} accounts older than 1 year`);
 
 ### Email Organization & Cleanup
 ```typescript
-import { parseArchive, NewsletterDetector } from '@jacobkanfer/email-archive-parser';
+import { parseArchive, NewsletterDetector } from '@technical-1/email-archive-parser';
 
 // Identify newsletter subscriptions for cleanup
 const result = await parseArchive(emailArchive, {
@@ -114,7 +114,7 @@ console.log('Newsletter frequency distribution:', newslettersByFreq);
 
 ### Business Intelligence & Analytics
 ```typescript
-import { parseArchive } from '@jacobkanfer/email-archive-parser';
+import { parseArchive } from '@technical-1/email-archive-parser';
 
 // Extract business insights from email archives
 const result = await parseArchive(companyEmails, {
@@ -138,7 +138,7 @@ console.log('Top spending vendors:', topVendors);
 
 ### Research & Data Analysis
 ```typescript
-import { parseArchive } from '@jacobkanfer/email-archive-parser';
+import { parseArchive } from '@technical-1/email-archive-parser';
 
 // Academic research: analyze email communication patterns
 const result = await parseArchive(researchEmails);
@@ -168,15 +168,15 @@ console.log('Most active email correspondents:', sortedSenders);
 ## 📦 Installation
 
 ```bash
-npm install @jacobkanfer/email-archive-parser
+npm install @technical-1/email-archive-parser
 ```
 
 ```bash
-yarn add @jacobkanfer/email-archive-parser
+yarn add @technical-1/email-archive-parser
 ```
 
 ```bash
-pnpm add @jacobkanfer/email-archive-parser
+pnpm add @technical-1/email-archive-parser
 ```
 
 ---
@@ -187,7 +187,7 @@ pnpm add @jacobkanfer/email-archive-parser
 
 **React / Next.js / Vite:**
 ```tsx
-import { parseArchive } from '@jacobkanfer/email-archive-parser';
+import { parseArchive } from '@technical-1/email-archive-parser';
 
 // In your component:
 const handleUpload = async (e) => {
@@ -203,7 +203,7 @@ return <input type="file" accept=".olm,.mbox" onChange={handleUpload} />;
 ```html
 <input type="file" id="upload" accept=".olm,.mbox">
 <script type="module">
-  import { parseArchive } from '@jacobkanfer/email-archive-parser';
+  import { parseArchive } from '@technical-1/email-archive-parser';
   
   document.getElementById('upload').onchange = async (e) => {
     const result = await parseArchive(e.target.files[0]);
@@ -214,7 +214,7 @@ return <input type="file" accept=".olm,.mbox" onChange={handleUpload} />;
 
 **Node.js (for any file size):**
 ```typescript
-import { MBOXParser, OLMParser } from '@jacobkanfer/email-archive-parser';
+import { MBOXParser, OLMParser } from '@technical-1/email-archive-parser';
 
 // Parse a 5GB MBOX file with streaming - no memory issues!
 const parser = new MBOXParser();
@@ -248,7 +248,7 @@ npm run dev
 ### One-Line Archive Analysis
 
 ```typescript
-import { parseArchive } from '@jacobkanfer/email-archive-parser';
+import { parseArchive } from '@technical-1/email-archive-parser';
 
 // Parse any email archive with full detection
 const result = await parseArchive(file, {
@@ -273,7 +273,7 @@ console.log(`
 ### Browser File Upload
 
 ```typescript
-import { parseArchive } from '@jacobkanfer/email-archive-parser';
+import { parseArchive } from '@technical-1/email-archive-parser';
 
 const fileInput = document.querySelector('input[type="file"]');
 const resultsDiv = document.querySelector('#results');
@@ -309,7 +309,7 @@ fileInput.addEventListener('change', async (e) => {
 
 ```typescript
 import { readFileSync } from 'fs';
-import { parseArchive } from '@jacobkanfer/email-archive-parser';
+import { parseArchive } from '@technical-1/email-archive-parser';
 
 // Handle large files efficiently
 const buffer = readFileSync('gmail-takeout.mbox');
@@ -329,7 +329,7 @@ console.log(`🔄 Monthly subscriptions: $${monthlySubs.toFixed(2)}`);
 ### Advanced Streaming (Large Files)
 
 ```typescript
-import { MBOXParser } from '@jacobkanfer/email-archive-parser';
+import { MBOXParser } from '@technical-1/email-archive-parser';
 
 // Process 2GB+ files without memory issues
 const parser = new MBOXParser();
@@ -363,7 +363,7 @@ import {
   OLMParser, MBOXParser,
   AccountDetector, PurchaseDetector,
   SubscriptionDetector, NewsletterDetector
-} from '@jacobkanfer/email-archive-parser';
+} from '@technical-1/email-archive-parser';
 
 // Parse different archive types
 const olmParser = new OLMParser();
@@ -441,7 +441,7 @@ interface ParseResult {
 #### `OLMParser` - Outlook for Mac Archives
 
 ```typescript
-import { OLMParser } from '@jacobkanfer/email-archive-parser';
+import { OLMParser } from '@technical-1/email-archive-parser';
 
 const parser = new OLMParser();
 
@@ -471,7 +471,7 @@ if (OLMParser.isOLMFile(file)) {
 #### `MBOXParser` - MBOX Archives
 
 ```typescript
-import { MBOXParser } from '@jacobkanfer/email-archive-parser';
+import { MBOXParser } from '@technical-1/email-archive-parser';
 
 const parser = new MBOXParser();
 
@@ -519,7 +519,7 @@ const folders = parser.getAllFolderIdsFromLabels(labelsHeader);
 #### `AccountDetector` - Service Account Detection
 
 ```typescript
-import { AccountDetector } from '@jacobkanfer/email-archive-parser';
+import { AccountDetector } from '@technical-1/email-archive-parser';
 
 const detector = new AccountDetector();
 
@@ -540,7 +540,7 @@ const services = detector.getKnownServices();
 #### `PurchaseDetector` - Transaction Detection
 
 ```typescript
-import { PurchaseDetector } from '@jacobkanfer/email-archive-parser';
+import { PurchaseDetector } from '@technical-1/email-archive-parser';
 
 const detector = new PurchaseDetector();
 
@@ -564,7 +564,7 @@ const category = detector.getCategory('Amazon'); // 'ecommerce'
 #### `SubscriptionDetector` - Recurring Service Detection
 
 ```typescript
-import { SubscriptionDetector } from '@jacobkanfer/email-archive-parser';
+import { SubscriptionDetector } from '@technical-1/email-archive-parser';
 
 const detector = new SubscriptionDetector();
 
@@ -585,7 +585,7 @@ const subscriptions = detector.detectBatch(emails);
 #### `NewsletterDetector` - Newsletter & Promotional Detection
 
 ```typescript
-import { NewsletterDetector } from '@jacobkanfer/email-archive-parser';
+import { NewsletterDetector } from '@technical-1/email-archive-parser';
 
 const detector = new NewsletterDetector();
 
@@ -613,7 +613,7 @@ const category = detector.categorize(email); // 'newsletter' | 'promotional' | '
 #### `OLMParser`
 
 ```typescript
-import { OLMParser } from '@jacobkanfer/email-archive-parser';
+import { OLMParser } from '@technical-1/email-archive-parser';
 
 const parser = new OLMParser();
 
@@ -629,7 +629,7 @@ if (OLMParser.isOLMFile(file)) {
 #### `MBOXParser`
 
 ```typescript
-import { MBOXParser } from '@jacobkanfer/email-archive-parser';
+import { MBOXParser } from '@technical-1/email-archive-parser';
 
 const parser = new MBOXParser();
 
@@ -647,7 +647,7 @@ if (MBOXParser.isMBOXFile(file)) {
 For files over 20MB, use the streaming API for better memory efficiency:
 
 ```typescript
-import { MBOXParser, type EmailBatchCallback } from '@jacobkanfer/email-archive-parser';
+import { MBOXParser, type EmailBatchCallback } from '@technical-1/email-archive-parser';
 
 const parser = new MBOXParser();
 const allEmails: Email[] = [];
@@ -700,7 +700,7 @@ Labels are automatically mapped to folders:
 Detects account signup/registration emails from 100+ known services.
 
 ```typescript
-import { AccountDetector } from '@jacobkanfer/email-archive-parser';
+import { AccountDetector } from '@technical-1/email-archive-parser';
 
 const detector = new AccountDetector();
 
@@ -720,7 +720,7 @@ const services = detector.getKnownServices();
 Detects purchase/order confirmation emails with multi-currency support.
 
 ```typescript
-import { PurchaseDetector } from '@jacobkanfer/email-archive-parser';
+import { PurchaseDetector } from '@technical-1/email-archive-parser';
 
 const detector = new PurchaseDetector();
 
@@ -740,7 +740,7 @@ const category = detector.getCategory('Amazon'); // 'ecommerce'
 Detects recurring subscription services.
 
 ```typescript
-import { SubscriptionDetector } from '@jacobkanfer/email-archive-parser';
+import { SubscriptionDetector } from '@technical-1/email-archive-parser';
 
 const detector = new SubscriptionDetector();
 
@@ -757,7 +757,7 @@ const subscriptions = detector.detectBatch(emails);
 Detects newsletters and promotional emails, extracts unsubscribe links.
 
 ```typescript
-import { NewsletterDetector } from '@jacobkanfer/email-archive-parser';
+import { NewsletterDetector } from '@technical-1/email-archive-parser';
 
 const detector = new NewsletterDetector();
 
@@ -937,7 +937,7 @@ import {
   decodeQuotedPrintable,   // Decode QP encoding
   decodeHeaderValue,       // Decode RFC 2047 headers
   parseDate,              // Parse various date formats
-} from '@jacobkanfer/email-archive-parser';
+} from '@technical-1/email-archive-parser';
 ```
 
 ---
@@ -952,7 +952,7 @@ import {
   normalizeSubject,     // Normalize subject for thread matching
   formatFileSize,       // Human-readable file size
   formatDomainAsName,   // Convert domain to readable name
-} from '@jacobkanfer/email-archive-parser';
+} from '@technical-1/email-archive-parser';
 ```
 
 ---
@@ -964,7 +964,7 @@ import {
 For processing large email archives without memory constraints:
 
 ```typescript
-import { MBOXParser } from '@jacobkanfer/email-archive-parser';
+import { MBOXParser } from '@technical-1/email-archive-parser';
 
 const parser = new MBOXParser();
 
@@ -1012,7 +1012,7 @@ const result = await parseArchive(file, {
 Extend detectors with custom logic:
 
 ```typescript
-import { AccountDetector } from '@jacobkanfer/email-archive-parser';
+import { AccountDetector } from '@technical-1/email-archive-parser';
 
 class CustomAccountDetector extends AccountDetector {
   detect(email: Email) {
@@ -1113,7 +1113,7 @@ while (offset < basicResult.emails.length) {
 
 ```typescript
 import React, { useState } from 'react';
-import { parseArchive } from '@jacobkanfer/email-archive-parser';
+import { parseArchive } from '@technical-1/email-archive-parser';
 
 function EmailAnalyzer() {
   const [results, setResults] = useState(null);
@@ -1150,7 +1150,7 @@ function EmailAnalyzer() {
 ```typescript
 #!/usr/bin/env node
 import { readFileSync } from 'fs';
-import { parseArchive } from '@jacobkanfer/email-archive-parser';
+import { parseArchive } from '@technical-1/email-archive-parser';
 
 const filePath = process.argv[2];
 if (!filePath) {
@@ -1182,7 +1182,7 @@ console.log(`   Newsletters: ${result.stats.newsletterCount}`);
 ### Database Integration
 
 ```typescript
-import { parseArchive } from '@jacobkanfer/email-archive-parser';
+import { parseArchive } from '@technical-1/email-archive-parser';
 import { createConnection } from 'mysql2/promise';
 
 const connection = await createConnection({
@@ -1231,7 +1231,7 @@ Enter your username, password, and email when prompted.
 
 ### 3. Update Package Name (Optional)
 
-If `@jacobkanfer/email-archive-parser` is not your npm username, update the package name in `package.json`:
+If `@technical-1/email-archive-parser` is not your npm username, update the package name in `package.json`:
 
 ```json
 {
@@ -1266,7 +1266,7 @@ You can test the package locally before publishing:
 npm link
 
 # In another project
-npm link @jacobkanfer/email-archive-parser
+npm link @technical-1/email-archive-parser
 ```
 
 ### 6. Publish to npm
@@ -1283,7 +1283,7 @@ npm publish
 
 Visit your package page:
 ```
-https://www.npmjs.com/package/@jacobkanfer/email-archive-parser
+https://www.npmjs.com/package/@technical-1/email-archive-parser
 ```
 
 ### 8. Update Version for Future Releases

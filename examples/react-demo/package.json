@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@jacobkanfer/email-archive-parser": "file:../..",
+    "@technical-1/email-archive-parser": "file:../..",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { parseArchive, MBOXParser, OLMParser, Email, Contact, CalendarEvent } from '@jacobkanfer/email-archive-parser';
+import { parseArchive, MBOXParser, OLMParser, Email, Contact, CalendarEvent } from '@technical-1/email-archive-parser';
 import {
   openDB,
   clearAllData,

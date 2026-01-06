@@ -8,7 +8,7 @@
  * - MBOX: Gmail Takeout, Thunderbird, Apple Mail, and other email clients
  */
 
-import { parseArchive, OLMParser, MBOXParser } from '@jacobkanfer/email-archive-parser';
+import { parseArchive, OLMParser, MBOXParser } from '@technical-1/email-archive-parser';
 
 // =============================================================================
 // Example 1: Using the convenience function (recommended)

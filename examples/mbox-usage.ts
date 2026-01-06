@@ -13,7 +13,7 @@ import {
   MBOXParser,
   AccountDetector,
   PurchaseDetector,
-} from '@jacobkanfer/email-archive-parser';
+} from '@technical-1/email-archive-parser';
 
 // =============================================================================
 // Example 1: Basic MBOX parsing (Browser)

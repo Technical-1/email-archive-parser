@@ -7,14 +7,14 @@
  * Works with: React, Next.js, Vite, Create React App, Remix
  * 
  * Install in your project:
- *   npm install @jacobkanfer/email-archive-parser
+ *   npm install @technical-1/email-archive-parser
  */
 
 // @ts-nocheck
 // Note: Remove @ts-nocheck when using in your React project
 
 import { useState } from 'react';
-import { parseArchive } from '@jacobkanfer/email-archive-parser';
+import { parseArchive } from '@technical-1/email-archive-parser';
 
 export default function EmailUploader() {
   const [emails, setEmails] = useState([]);

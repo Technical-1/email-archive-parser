@@ -12,7 +12,7 @@ import {
   SubscriptionDetector,
   NewsletterDetector,
   createParsers,
-} from '@jacobkanfer/email-archive-parser';
+} from '@technical-1/email-archive-parser';
 
 // =============================================================================
 // Example 1: Parse with all detectors enabled

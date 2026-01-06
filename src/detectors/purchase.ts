@@ -12,7 +12,7 @@ import { stripHtml, extractDomain } from '../utils';
  *
  * @example
  * ```typescript
- * import { PurchaseDetector } from '@jacobkanfer/email-archive-parser';
+ * import { PurchaseDetector } from '@technical-1/email-archive-parser';
  *
  * const detector = new PurchaseDetector();
  * const result = detector.detect(email);

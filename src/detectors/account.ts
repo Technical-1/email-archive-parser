@@ -12,7 +12,7 @@ import { stripHtml, extractDomain } from '../utils';
  *
  * @example
  * ```typescript
- * import { AccountDetector } from '@jacobkanfer/email-archive-parser';
+ * import { AccountDetector } from '@technical-1/email-archive-parser';
  *
  * const detector = new AccountDetector();
  * const result = detector.detect(email);
