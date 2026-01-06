@@ -1,6 +1,6 @@
 # Email Archive Parser - React Demo
 
-A complete React implementation demonstrating how to use `@jacobkanfer/email-archive-parser` with IndexedDB storage for handling large files.
+A complete React implementation demonstrating how to use `@technical-1/email-archive-parser` with IndexedDB storage for handling large files.
 
 ## Quick Start
 
@@ -26,7 +26,7 @@ npm run dev
 ## Usage in Your Project
 
 1. Copy the `src/` folder to your React project
-2. Install the parser: `npm install @jacobkanfer/email-archive-parser`
+2. Install the parser: `npm install @technical-1/email-archive-parser`
 3. Import and use the components
 
 ```tsx

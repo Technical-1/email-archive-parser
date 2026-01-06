@@ -42,12 +42,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jacobkanfer/email-archive-parser.git"
+    "url": "git+https://github.com/Technical-1/email-archive-parser.git"
   },
   "bugs": {
-    "url": "https://github.com/jacobkanfer/email-archive-parser/issues"
+    "url": "https://github.com/Technical-1/email-archive-parser/issues"
   },
-  "homepage": "https://github.com/jacobkanfer/email-archive-parser#readme",
+  "homepage": "https://github.com/Technical-1/email-archive-parser#readme",
   "dependencies": {
     "jszip": "^3.10.1"
   },
