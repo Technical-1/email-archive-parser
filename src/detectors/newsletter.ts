@@ -193,7 +193,7 @@ export class NewsletterDetector {
     const newsletters: Newsletter[] = [];
 
     senderMap.forEach((data, sender) => {
-      const sortedEntries = data.entries.sort(
+      const sortedEntries = [...data.entries].sort(
         (a, b) => new Date(b.email.date).getTime() - new Date(a.email.date).getTime()
       );
       const latest = sortedEntries[0];

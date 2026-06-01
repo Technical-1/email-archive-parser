@@ -236,7 +236,7 @@ export class SubscriptionDetector {
             if (result.amount && result.amount > 0) {
               existing.monthlyAmount = normalizeToMonthly(
                 result.amount,
-                result.frequency || existing.frequency
+                existing.frequency
               );
             }
           }
