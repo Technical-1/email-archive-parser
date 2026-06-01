@@ -96,6 +96,7 @@ export class MBOXParser {
         result.emails.push(...(batch as Email[]));
       });
       result.stats.emailCount = count;
+      this.assignEmailIds(result);
       return result;
     }
 
@@ -108,6 +109,7 @@ export class MBOXParser {
         result.emails.push(...(batch as Email[]));
       });
       result.stats.emailCount = count;
+      this.assignEmailIds(result);
       return result;
     }
 
@@ -200,6 +202,7 @@ export class MBOXParser {
       `Parsed ${result.stats.emailCount} emails successfully`
     );
 
+    this.assignEmailIds(result);
     return result;
   }
 
@@ -322,6 +325,7 @@ export class MBOXParser {
       `Parsed ${totalEmailsParsed} emails successfully`
     );
 
+    this.assignEmailIds(result);
     return result;
   }
 
@@ -578,6 +582,17 @@ export class MBOXParser {
     message: string
   ): void {
     callback?.({ stage, progress, message });
+  }
+
+  /**
+   * Assign a stable sequential id to every parsed email so that detection
+   * results (Account.signupEmailId, Purchase.emailId, Subscription.emailIds)
+   * can reference their source email.
+   */
+  private assignEmailIds(result: ParseResult): void {
+    result.emails.forEach((email, index) => {
+      email.id = index;
+    });
   }
 
   /**

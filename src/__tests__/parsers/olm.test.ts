@@ -226,3 +226,25 @@ describe('OLMParser', () => {
   });
 });
 
+describe('OLM email ids', () => {
+  it('assigns sequential ids to parsed emails', async () => {
+    const zip = new JSZip();
+    zip.file(
+      'com.microsoft.__Messages/message_1.xml',
+      '<email><OPFMessageCopySubject>One</OPFMessageCopySubject>' +
+        '<OPFMessageCopyBody>first</OPFMessageCopyBody></email>'
+    );
+    zip.file(
+      'com.microsoft.__Messages/message_2.xml',
+      '<email><OPFMessageCopySubject>Two</OPFMessageCopySubject>' +
+        '<OPFMessageCopyBody>second</OPFMessageCopyBody></email>'
+    );
+    const buffer = await zip.generateAsync({ type: 'nodebuffer' });
+    const parser = new OLMParser();
+    const result = await parser.parse(buffer);
+    expect(result.emails.length).toBe(2);
+    const ids = result.emails.map((e) => e.id).sort((a, b) => (a! - b!));
+    expect(ids).toEqual([0, 1]);
+  });
+});
+

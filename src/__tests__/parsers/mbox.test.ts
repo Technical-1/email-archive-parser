@@ -414,3 +414,28 @@ describe('MBOX message boundaries', () => {
   });
 });
 
+describe('MBOX email ids', () => {
+  it('assigns sequential ids to parsed emails', async () => {
+    const parser = new MBOXParser();
+    const mbox = [
+      'From a@example.com Mon Jan  1 00:00:00 2024',
+      'From: A <a@example.com>',
+      'Subject: One',
+      'Date: Mon, 01 Jan 2024 00:00:00 +0000',
+      '',
+      'first',
+      'From b@example.com Tue Jan  2 00:00:00 2024',
+      'From: B <b@example.com>',
+      'Subject: Two',
+      'Date: Tue, 02 Jan 2024 00:00:00 +0000',
+      '',
+      'second',
+      '',
+    ].join('\n');
+    const result = await parser.parse(Buffer.from(mbox, 'utf-8'));
+    expect(result.emails).toHaveLength(2);
+    expect(result.emails[0].id).toBe(0);
+    expect(result.emails[1].id).toBe(1);
+  });
+});
+

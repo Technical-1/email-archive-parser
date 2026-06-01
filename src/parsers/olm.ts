@@ -233,6 +233,7 @@ export class OLMParser {
 
       this.reportProgress(onProgress, 'complete', 100, 'Processing complete!');
 
+      this.assignEmailIds(result);
       return result;
     } catch (error) {
       throw new Error(
@@ -273,6 +274,16 @@ export class OLMParser {
     message: string
   ): void {
     callback?.({ stage, progress, message });
+  }
+
+  /**
+   * Assign a stable sequential id to every parsed email so detection results
+   * can reference their source email.
+   */
+  private assignEmailIds(result: ParseResult): void {
+    result.emails.forEach((email, index) => {
+      email.id = index;
+    });
   }
 
   private parseEmailXML(xmlContent: string): Omit<Email, 'id'> | null {
