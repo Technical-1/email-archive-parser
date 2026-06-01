@@ -5,6 +5,7 @@
 
 import type { Email, Account, AccountDetectionResult, ServiceType } from '../types';
 import { stripHtml, extractDomain } from '../utils';
+import { matchKnownDomain } from './domainMatch';
 
 /**
  * Detector for account signup/registration emails
@@ -318,24 +319,7 @@ export class AccountDetector {
   }
 
   private findKnownService(domain: string): { name: string; type: ServiceType } | null {
-    if (this.knownServices[domain]) {
-      return this.knownServices[domain];
-    }
-
-    for (const [serviceDomain, info] of Object.entries(this.knownServices)) {
-      if (domain === serviceDomain || domain.endsWith('.' + serviceDomain)) {
-        return info;
-      }
-    }
-
-    for (const [serviceDomain, info] of Object.entries(this.knownServices)) {
-      const baseDomain = serviceDomain.split('.')[0];
-      if (domain.includes(baseDomain + '.') || domain.includes('.' + baseDomain)) {
-        return info;
-      }
-    }
-
-    return null;
+    return matchKnownDomain(domain, this.knownServices);
   }
 
   private extractServiceName(subject: string): string {

@@ -273,6 +273,29 @@ describe('AccountDetector', () => {
     });
   });
 
+  describe('domain matching', () => {
+    it('does not classify fedex.com as X (x.com substring)', () => {
+      const detector = new AccountDetector();
+      const email = createEmail({
+        subject: 'Welcome to your account',
+        sender: 'noreply@fedex.com',
+        body: 'Thanks for signing up! Please verify your email address.',
+      });
+      const result = detector.detect(email);
+      expect(result.data?.serviceName).not.toBe('X');
+    });
+    it('does not classify dropbox.com as Box', () => {
+      const detector = new AccountDetector();
+      const email = createEmail({
+        subject: 'Welcome to Dropbox!',
+        sender: 'no-reply@dropbox.com',
+        body: 'Thanks for signing up.',
+      });
+      const result = detector.detect(email);
+      expect(result.data?.serviceName).toBe('Dropbox');
+    });
+  });
+
   describe('getKnownServices', () => {
     it('should return list of known services', () => {
       const detector = new AccountDetector();
