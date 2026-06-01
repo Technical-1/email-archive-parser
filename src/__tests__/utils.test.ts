@@ -51,6 +51,10 @@ describe('cleanEmailAddress', () => {
   it('should return empty string when there is no address at all', () => {
     expect(cleanEmailAddress('Just A Name')).toBe('');
   });
+
+  it('strips trailing punctuation from a bare address token', () => {
+    expect(cleanEmailAddress('to: jane@localhost,')).toBe('jane@localhost');
+  });
 });
 
 describe('stripHtml', () => {

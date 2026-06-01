@@ -54,7 +54,8 @@ export function cleanEmailAddress(email: string): string {
   // Fallback: a bare "local@host" token (e.g. user@localhost), no display name
   const bareMatch = cleaned.match(/(?:^|\s)([^\s<>@]+@[^\s<>@]+)(?:\s|$)/);
   if (bareMatch) {
-    return bareMatch[1].toLowerCase();
+    // Strip any trailing punctuation picked up from list separators
+    return bareMatch[1].replace(/[.,;:!?]+$/, '').toLowerCase();
   }
 
   // No address found — don't leak display-name text
