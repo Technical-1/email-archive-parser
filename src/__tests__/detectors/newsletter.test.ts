@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { NewsletterDetector } from '../../detectors/newsletter';
 import type { Email } from '../../types';
 
@@ -463,6 +463,31 @@ describe('NewsletterDetector', () => {
       const newsletters = detector.detectBatch(emails);
 
       expect(newsletters[0].unsubscribeLink).toBe('https://blog.com/unsubscribe');
+    });
+  });
+
+  describe('detectBatch efficiency', () => {
+    it('runs detect() at most once per email', () => {
+      const detector = new NewsletterDetector();
+      const detectSpy = vi.spyOn(detector, 'detect');
+      const emails = [
+        createEmail({
+          id: 1,
+          sender: 'news@promo.example.com',
+          subject: 'Weekly digest',
+          body: 'unsubscribe here. manage your email preferences. view in browser.',
+          date: new Date('2024-01-01'),
+        }),
+        createEmail({
+          id: 2,
+          sender: 'news@promo.example.com',
+          subject: 'Weekly digest',
+          body: 'unsubscribe here. manage your email preferences. view in browser.',
+          date: new Date('2024-01-08'),
+        }),
+      ];
+      detector.detectBatch(emails);
+      expect(detectSpy).toHaveBeenCalledTimes(emails.length);
     });
   });
 });

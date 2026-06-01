@@ -167,20 +167,23 @@ export class NewsletterDetector {
    * @returns Array of detected newsletters (grouped by sender)
    */
   detectBatch(emails: Email[]): Newsletter[] {
-    const senderMap = new Map<string, { emails: Email[]; unsubscribeLinks: Set<string> }>();
+    const senderMap = new Map<
+      string,
+      {
+        entries: { email: Email; result: NewsletterDetectionResult }[];
+        unsubscribeLinks: Set<string>;
+      }
+    >();
 
     for (const email of emails) {
       const result = this.detect(email);
       if (result.isNewsletter || result.isPromotional) {
         const sender = email.sender;
-
         if (!senderMap.has(sender)) {
-          senderMap.set(sender, { emails: [], unsubscribeLinks: new Set() });
+          senderMap.set(sender, { entries: [], unsubscribeLinks: new Set() });
         }
-
         const data = senderMap.get(sender)!;
-        data.emails.push(email);
-
+        data.entries.push({ email, result });
         if (result.unsubscribeLink) {
           data.unsubscribeLinks.add(result.unsubscribeLink);
         }
@@ -190,24 +193,21 @@ export class NewsletterDetector {
     const newsletters: Newsletter[] = [];
 
     senderMap.forEach((data, sender) => {
-      const sortedEmails = data.emails.sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      const sortedEntries = data.entries.sort(
+        (a, b) => new Date(b.email.date).getTime() - new Date(a.email.date).getTime()
       );
-
-      const latestEmail = sortedEmails[0];
+      const latest = sortedEntries[0];
       const unsubscribeLinks = Array.from(data.unsubscribeLinks);
-
-      // Calculate frequency based on email dates
-      const frequency = this.calculateFrequency(sortedEmails);
+      const frequency = this.calculateFrequency(sortedEntries.map((e) => e.email));
 
       newsletters.push({
         senderEmail: sender,
-        senderName: latestEmail.senderName || this.extractNameFromEmail(sender),
-        emailCount: data.emails.length,
-        lastEmailDate: new Date(latestEmail.date),
+        senderName: latest.email.senderName || this.extractNameFromEmail(sender),
+        emailCount: data.entries.length,
+        lastEmailDate: new Date(latest.email.date),
         frequency,
         unsubscribeLink: unsubscribeLinks[0],
-        isPromotional: this.detect(latestEmail).isPromotional,
+        isPromotional: latest.result.isPromotional,
       });
     });
 
