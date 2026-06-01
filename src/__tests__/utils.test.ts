@@ -282,6 +282,17 @@ describe('decodeHeaderValue', () => {
     const result = decodeHeaderValue('=?UTF-8?B?SGVsbG8=?= =?UTF-8?B?V29ybGQ=?=');
     expect(result).toBe('Hello World');
   });
+
+  it('should decode a UTF-8 base64 encoded-word', () => {
+    // "café" UTF-8 base64 is "Y2Fmw6k="
+    const result = decodeHeaderValue('=?UTF-8?B?Y2Fmw6k=?=');
+    expect(result).toBe('café');
+  });
+
+  it('should decode a UTF-8 quoted-printable encoded-word', () => {
+    const result = decodeHeaderValue('=?UTF-8?Q?caf=C3=A9?=');
+    expect(result).toBe('café');
+  });
 });
 
 describe('formatDomainAsName', () => {
