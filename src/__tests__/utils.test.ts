@@ -328,8 +328,8 @@ describe('decodeHeaderValue', () => {
   });
 
   it('should fall back to raw text for malformed base64', () => {
-    // '@@@' is not valid base64; should not throw, returns the raw payload
-    expect(() => decodeHeaderValue('=?UTF-8?B?@@@?=')).not.toThrow();
+    // '@@@' is not valid base64; the try/catch returns the raw encoded payload
+    expect(decodeHeaderValue('=?UTF-8?B?@@@?=')).toBe('@@@');
   });
 });
 
