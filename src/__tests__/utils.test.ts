@@ -183,6 +183,21 @@ describe('formatFileSize', () => {
   it('should show decimal places', () => {
     expect(formatFileSize(1536)).toBe('1.5 KB');
   });
+
+  it('should format terabytes without an undefined unit', () => {
+    expect(formatFileSize(1024 ** 4)).toBe('1 TB');
+  });
+  it('should format petabytes', () => {
+    expect(formatFileSize(1024 ** 5)).toBe('1 PB');
+  });
+  it('should clamp absurdly large values to the largest unit', () => {
+    const result = formatFileSize(1024 ** 7);
+    expect(result).not.toContain('undefined');
+    expect(result.endsWith(' PB')).toBe(true);
+  });
+  it('should treat negative input as 0 B', () => {
+    expect(formatFileSize(-5)).toBe('0 B');
+  });
 });
 
 describe('getInitials', () => {
