@@ -241,11 +241,20 @@ describe('decodeQuotedPrintable', () => {
     expect(decodeQuotedPrintable('Hello=\r\nWorld')).toBe('HelloWorld');
   });
 
-  it('should decode multiple encoded chars', () => {
-    // Note: decodeQuotedPrintable converts hex to single bytes, not UTF-8 sequences
-    // =C3=A9 is UTF-8 for 'é', but the function decodes each byte individually
+  it('should decode literal escaped characters', () => {
     expect(decodeQuotedPrintable('=3D')).toBe('=');
     expect(decodeQuotedPrintable('=20')).toBe(' ');
+  });
+
+  it('should decode multi-byte UTF-8 sequences', () => {
+    // =C3=A9 is UTF-8 for 'é'
+    expect(decodeQuotedPrintable('caf=C3=A9')).toBe('café');
+    // =E2=82=AC is UTF-8 for '€'
+    expect(decodeQuotedPrintable('=E2=82=AC')).toBe('€');
+  });
+
+  it('should leave a trailing lone = untouched', () => {
+    expect(decodeQuotedPrintable('price=')).toBe('price=');
   });
 
   it('should pass through unencoded text', () => {

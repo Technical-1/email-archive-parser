@@ -4,6 +4,35 @@
  */
 
 /**
+ * Decode a UTF-8 byte array to a string, using TextDecoder where available
+ * and falling back to Node's Buffer. Centralizes correct multi-byte handling.
+ */
+function utf8BytesToString(bytes: Uint8Array): string {
+  if (typeof TextDecoder !== 'undefined') {
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+  // Node.js fallback
+  return Buffer.from(bytes).toString('utf-8');
+}
+
+/**
+ * Decode a base64 string whose decoded bytes are UTF-8 text.
+ * `atob` yields a Latin-1 string (one char per byte), so we re-read those
+ * char codes as bytes and UTF-8 decode them. In Node, Buffer handles it directly.
+ */
+function base64ToUtf8(str: string): string {
+  if (typeof atob !== 'undefined') {
+    const binary = atob(str);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i) & 0xff;
+    }
+    return utf8BytesToString(bytes);
+  }
+  return Buffer.from(str, 'base64').toString('utf-8');
+}
+
+/**
  * Clean and normalize an email address
  * @param email - Raw email string
  * @returns Cleaned, lowercase email address
@@ -150,39 +179,54 @@ export function parseDate(dateStr: string): Date | null {
 }
 
 /**
- * Decode quoted-printable encoding
+ * Decode quoted-printable encoding into UTF-8 text.
+ * Soft line breaks are removed, then every `=XX` sequence and literal
+ * character is accumulated as raw bytes and decoded together as UTF-8,
+ * so multi-byte sequences (e.g. `=C3=A9` -> 'é') decode correctly.
  * @param str - Quoted-printable encoded string
  * @returns Decoded string
  */
 export function decodeQuotedPrintable(str: string): string {
-  return str
-    .replace(/=\r?\n/g, '') // Remove soft line breaks
-    .replace(/=([0-9A-F]{2})/gi, (_, hex) => 
-      String.fromCharCode(parseInt(hex, 16))
-    );
+  // Remove soft line breaks first ("=\n" or "=\r\n")
+  const cleaned = str.replace(/=\r?\n/g, '');
+
+  const bytes: number[] = [];
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i];
+    if (char === '=' && i + 2 < cleaned.length) {
+      const hex = cleaned.substring(i + 1, i + 3);
+      if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+        bytes.push(parseInt(hex, 16));
+        i += 2;
+        continue;
+      }
+    }
+    // Literal character — quoted-printable literals are ASCII, but mask to a
+    // byte defensively so any stray code point stays in range.
+    bytes.push(char.charCodeAt(0) & 0xff);
+  }
+
+  return utf8BytesToString(new Uint8Array(bytes));
 }
 
 /**
- * Decode RFC 2047 encoded header value
+ * Decode an RFC 2047 encoded header value.
+ * Handles the `=?charset?encoding?text?=` format for both `B` (base64)
+ * and `Q` (quoted-printable) encodings, decoding the payload as UTF-8.
  * @param str - Encoded header value
  * @returns Decoded string
  */
 export function decodeHeaderValue(str: string): string {
-  // Handle =?charset?encoding?text?= format
   return str.replace(
     /=\?([^?]+)\?([BQ])\?([^?]+)\?=/gi,
     (_, _charset, encoding, text) => {
       try {
         if (encoding.toUpperCase() === 'B') {
-          // Base64
-          if (typeof atob !== 'undefined') {
-            return atob(text);
-          }
-          return Buffer.from(text, 'base64').toString('utf-8');
-        } else {
-          // Quoted-printable
-          return decodeQuotedPrintable(text.replace(/_/g, ' '));
+          // Base64-encoded UTF-8
+          return base64ToUtf8(text);
         }
+        // Quoted-printable: underscores represent spaces in encoded words
+        return decodeQuotedPrintable(text.replace(/_/g, ' '));
       } catch {
         return text;
       }
