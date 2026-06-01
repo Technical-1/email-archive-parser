@@ -439,3 +439,43 @@ describe('MBOX email ids', () => {
   });
 });
 
+describe('MBOX RFC 2822 envelope dates', () => {
+  it('splits on From lines that use a comma after the weekday', async () => {
+    const parser = new MBOXParser();
+    const mbox = [
+      'From a@example.com Thu, 15 Jan 2024 10:30:00 +0000',
+      'From: A <a@example.com>',
+      'Subject: One',
+      '',
+      'first body',
+      'From b@example.com Fri, 16 Jan 2024 10:30:00 +0000',
+      'From: B <b@example.com>',
+      'Subject: Two',
+      '',
+      'second body',
+      '',
+    ].join('\n');
+    const result = await parser.parse(Buffer.from(mbox, 'utf-8'));
+    expect(result.emails).toHaveLength(2);
+    expect(result.emails[0].sender).toBe('a@example.com');
+    expect(result.emails[1].sender).toBe('b@example.com');
+  });
+
+  it('still does NOT split on prose lines beginning with From', async () => {
+    const parser = new MBOXParser();
+    const mbox = [
+      'From a@example.com Mon Jan  1 00:00:00 2024',
+      'From: A <a@example.com>',
+      'Subject: Plans',
+      '',
+      'Hello,',
+      'From Bob, see you Friday at noon.',
+      'Bye',
+      '',
+    ].join('\n');
+    const result = await parser.parse(Buffer.from(mbox, 'utf-8'));
+    expect(result.emails).toHaveLength(1);
+    expect(result.emails[0].body).toContain('see you Friday');
+  });
+});
+

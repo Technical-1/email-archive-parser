@@ -597,13 +597,18 @@ export class MBOXParser {
 
   /**
    * Check if a line is a valid MBOX "From " separator line.
-   * A real separator is "From <sender> <Day Mon DD HH:MM:SS YYYY>", so we
-   * require a non-space sender token immediately followed by a 3-letter
-   * weekday token. This prevents prose lines such as
-   * "From Bob, see you Friday" from being treated as message boundaries.
+   * A real separator is "From <sender> <date>" where the date begins with a
+   * 3-letter weekday. We accept both the ctime form ("Mon Jan  1 ...", weekday
+   * followed by a space) and the RFC 2822 form ("Thu, 15 Jan ...", weekday
+   * followed by a comma). Requiring the weekday token immediately after the
+   * sender token prevents prose body lines such as "From Bob, see you Friday"
+   * from being mistaken for message boundaries. Bare numeric dates without a
+   * weekday are intentionally not treated as separators (too prone to matching
+   * prose), since the formats this parser targets (Gmail Takeout, Thunderbird,
+   * Python mailbox) all emit a weekday.
    */
   private isFromLine(line: string): boolean {
-    return /^From \S+ (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) /.test(line);
+    return /^From \S+ (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[ ,]/.test(line);
   }
 
   /**
