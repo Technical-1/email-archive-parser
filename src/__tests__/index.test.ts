@@ -210,6 +210,37 @@ describe('createParsers', () => {
   });
 });
 
+describe('parseArchive format detection', () => {
+  it('parses an MBOX Buffer without a filename', async () => {
+    const mbox = [
+      'From alice@example.com Mon Jan  1 00:00:00 2024',
+      'From: Alice <alice@example.com>',
+      'To: bob@example.com',
+      'Subject: Hello',
+      'Date: Mon, 01 Jan 2024 00:00:00 +0000',
+      '',
+      'Hi Bob',
+      '',
+    ].join('\n');
+    const result = await parseArchive(Buffer.from(mbox, 'utf-8'));
+    expect(result.emails).toHaveLength(1);
+    expect(result.emails[0].sender).toBe('alice@example.com');
+    expect(result.emails[0].subject).toBe('Hello');
+  });
+
+  it('still parses an OLM ArrayBuffer (ZIP) by default', async () => {
+    const zip = new JSZip();
+    zip.file(
+      'com.microsoft.__Messages/message_1.xml',
+      '<email><OPFMessageCopySubject>Hi</OPFMessageCopySubject>' +
+        '<OPFMessageCopyBody>Body</OPFMessageCopyBody></email>'
+    );
+    const buffer = await zip.generateAsync({ type: 'arraybuffer' });
+    const result = await parseArchive(buffer);
+    expect(result.emails.length).toBe(1);
+  });
+});
+
 describe('Exports', () => {
   it('should export OLMParser', () => {
     expect(OLMParser).toBeDefined();

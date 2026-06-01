@@ -117,27 +117,29 @@ export async function parseArchive(
   file: File | Buffer | ArrayBuffer,
   options: ParseOptions = {}
 ): Promise<ParseResult> {
-  // Determine file type
-  const isOLM =
-    file instanceof File
-      ? file.name.toLowerCase().endsWith('.olm')
-      : false;
+  // Determine which parser to use.
+  let useMbox = false;
 
-  const isMBOX =
-    file instanceof File
-      ? file.name.toLowerCase().endsWith('.mbox') ||
-        file.name.toLowerCase().endsWith('.mbx')
-      : false;
+  if (file instanceof File) {
+    const name = file.name.toLowerCase();
+    useMbox = name.endsWith('.mbox') || name.endsWith('.mbx');
+  } else {
+    // No filename available — sniff the leading bytes.
+    const head = getFirstBytes(file, 5);
+    if (looksLikeMbox(head) && !looksLikeZip(head)) {
+      useMbox = true;
+    }
+    // Otherwise default to OLM (ZIP container).
+  }
 
   // Use appropriate parser
   let result: ParseResult;
 
-  if (isOLM || (!isMBOX && !(file instanceof File))) {
-    // Default to OLM for non-File inputs or .olm files
-    const parser = new OLMParser();
+  if (useMbox) {
+    const parser = new MBOXParser();
     result = await parser.parse(file, options);
   } else {
-    const parser = new MBOXParser();
+    const parser = new OLMParser();
     result = await parser.parse(file, options);
   }
 
@@ -202,5 +204,43 @@ export function createParsers() {
       newsletter: new NewsletterDetector(),
     },
   };
+}
+
+/**
+ * Read the first `n` bytes of a Buffer or ArrayBuffer for format sniffing.
+ */
+function getFirstBytes(file: Buffer | ArrayBuffer, n: number): Uint8Array {
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(file)) {
+    return Uint8Array.from(file.subarray(0, n));
+  }
+  if (file instanceof ArrayBuffer) {
+    return new Uint8Array(file.slice(0, n));
+  }
+  if (ArrayBuffer.isView(file)) {
+    const view = file as ArrayBufferView;
+    return new Uint8Array(view.buffer, view.byteOffset, Math.min(n, view.byteLength));
+  }
+  return new Uint8Array(0);
+}
+
+/** ZIP local-file-header magic: 50 4B 03 04 ("PK\x03\x04") — OLM is a ZIP. */
+function looksLikeZip(bytes: Uint8Array): boolean {
+  return (
+    bytes[0] === 0x50 &&
+    bytes[1] === 0x4b &&
+    bytes[2] === 0x03 &&
+    bytes[3] === 0x04
+  );
+}
+
+/** MBOX files begin with the ASCII bytes for "From " (46 72 6f 6d 20). */
+function looksLikeMbox(bytes: Uint8Array): boolean {
+  return (
+    bytes[0] === 0x46 &&
+    bytes[1] === 0x72 &&
+    bytes[2] === 0x6f &&
+    bytes[3] === 0x6d &&
+    bytes[4] === 0x20
+  );
 }
 
