@@ -260,6 +260,10 @@ describe('decodeQuotedPrintable', () => {
   it('should pass through unencoded text', () => {
     expect(decodeQuotedPrintable('Plain text')).toBe('Plain text');
   });
+
+  it('should pass through = followed by a single non-hex-pair char at end', () => {
+    expect(decodeQuotedPrintable('price=3')).toBe('price=3');
+  });
 });
 
 describe('decodeHeaderValue', () => {
@@ -292,6 +296,11 @@ describe('decodeHeaderValue', () => {
   it('should decode a UTF-8 quoted-printable encoded-word', () => {
     const result = decodeHeaderValue('=?UTF-8?Q?caf=C3=A9?=');
     expect(result).toBe('café');
+  });
+
+  it('should fall back to raw text for malformed base64', () => {
+    // '@@@' is not valid base64; should not throw, returns the raw payload
+    expect(() => decodeHeaderValue('=?UTF-8?B?@@@?=')).not.toThrow();
   });
 });
 
