@@ -11,6 +11,7 @@ import type {
   SubscriptionFrequency,
 } from '../types';
 import { stripHtml, extractDomain, formatDomainAsName } from '../utils';
+import { matchKnownDomain } from './domainMatch';
 
 /**
  * Detector for recurring subscription/membership emails
@@ -219,17 +220,7 @@ export class SubscriptionDetector {
   private findKnownSubscription(
     domain: string
   ): { name: string; category: SubscriptionCategory } | null {
-    if (this.knownSubscriptions[domain]) {
-      return this.knownSubscriptions[domain];
-    }
-
-    for (const [subDomain, info] of Object.entries(this.knownSubscriptions)) {
-      if (domain.endsWith('.' + subDomain) || domain.includes(subDomain.split('.')[0])) {
-        return info;
-      }
-    }
-
-    return null;
+    return matchKnownDomain(domain, this.knownSubscriptions);
   }
 
   private extractAmount(text: string): { amount?: number; currency: string } {

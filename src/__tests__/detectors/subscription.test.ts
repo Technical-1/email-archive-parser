@@ -337,6 +337,29 @@ describe('SubscriptionDetector', () => {
     });
   });
 
+  describe('domain matching', () => {
+    it('does not classify mailmax.com as Max', () => {
+      const detector = new SubscriptionDetector();
+      const email = createEmail({
+        subject: 'Your monthly subscription renewal',
+        sender: 'billing@mailmax.com',
+        body: 'Your subscription has renewed. Next billing date: 2024-02-01. Recurring charge: $9.99',
+      });
+      const result = detector.detect(email);
+      expect(result.serviceName).not.toBe('Max');
+    });
+    it('does not classify amazonaws.com as Amazon Prime', () => {
+      const detector = new SubscriptionDetector();
+      const email = createEmail({
+        subject: 'Your monthly subscription receipt',
+        sender: 'billing@amazonaws.com',
+        body: 'Recurring payment: $5.00. Auto-renews on the 1st. Next billing date: soon.',
+      });
+      const result = detector.detect(email);
+      expect(result.serviceName).not.toBe('Amazon Prime');
+    });
+  });
+
   describe('getKnownServices', () => {
     it('should return list of known subscription services', () => {
       const detector = new SubscriptionDetector();
