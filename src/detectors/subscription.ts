@@ -28,6 +28,30 @@ import { matchKnownDomain } from './domainMatch';
  * }
  * ```
  */
+/**
+ * Convert a billed amount to an equivalent monthly figure so subscriptions
+ * with different billing frequencies can be compared on the same basis.
+ */
+function normalizeToMonthly(
+  amount: number,
+  frequency: SubscriptionFrequency
+): number {
+  let monthly: number;
+  switch (frequency) {
+    case 'yearly':
+      monthly = amount / 12;
+      break;
+    case 'weekly':
+      monthly = (amount * 52) / 12;
+      break;
+    case 'monthly':
+    default:
+      monthly = amount;
+      break;
+  }
+  return Math.round(monthly * 100) / 100;
+}
+
 export class SubscriptionDetector {
   private readonly knownSubscriptions: Record<
     string,
@@ -190,7 +214,10 @@ export class SubscriptionDetector {
         if (!subscriptionMap.has(key)) {
           subscriptionMap.set(key, {
             serviceName: result.serviceName,
-            monthlyAmount: result.amount || 0,
+            monthlyAmount: normalizeToMonthly(
+              result.amount || 0,
+              result.frequency || 'monthly'
+            ),
             currency: result.currency || 'USD',
             frequency: result.frequency || 'monthly',
             lastRenewalDate: email.date,
@@ -203,11 +230,14 @@ export class SubscriptionDetector {
           existing.emailIds.push(email.id!);
           if (email.date > existing.lastRenewalDate) {
             existing.lastRenewalDate = email.date;
-            if (result.amount && result.amount > 0) {
-              existing.monthlyAmount = result.amount;
-            }
             if (result.frequency) {
               existing.frequency = result.frequency;
+            }
+            if (result.amount && result.amount > 0) {
+              existing.monthlyAmount = normalizeToMonthly(
+                result.amount,
+                result.frequency || existing.frequency
+              );
             }
           }
         }

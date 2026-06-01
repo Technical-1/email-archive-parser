@@ -360,6 +360,34 @@ describe('SubscriptionDetector', () => {
     });
   });
 
+  describe('monthlyAmount normalization', () => {
+    it('normalizes a yearly amount to monthly', () => {
+      const detector = new SubscriptionDetector();
+      const email = createEmail({
+        id: 1,
+        subject: 'Your annual subscription renewal',
+        sender: 'billing@nytimes.com',
+        body: 'Your yearly subscription has renewed for $120.00 per year. Auto-renews annually.',
+      });
+      const [sub] = detector.detectBatch([email]);
+      expect(sub).toBeDefined();
+      expect(sub.frequency).toBe('yearly');
+      expect(sub.monthlyAmount).toBeCloseTo(10, 2);
+    });
+    it('leaves a monthly amount unchanged', () => {
+      const detector = new SubscriptionDetector();
+      const email = createEmail({
+        id: 2,
+        subject: 'Your monthly subscription receipt',
+        sender: 'billing@spotify.com',
+        body: 'Your monthly subscription has renewed for $9.99 per month.',
+      });
+      const [sub] = detector.detectBatch([email]);
+      expect(sub).toBeDefined();
+      expect(sub.monthlyAmount).toBeCloseTo(9.99, 2);
+    });
+  });
+
   describe('getKnownServices', () => {
     it('should return list of known subscription services', () => {
       const detector = new SubscriptionDetector();
