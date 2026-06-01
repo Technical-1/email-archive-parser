@@ -41,6 +41,16 @@ describe('cleanEmailAddress', () => {
   it('should trim whitespace', () => {
     expect(cleanEmailAddress('  john@example.com  ')).toBe('john@example.com');
   });
+
+  it('should not leak the display name for an address without a dotted TLD', () => {
+    const result = cleanEmailAddress('Jane Roe <jane@localhost>');
+    expect(result).toBe('jane@localhost');
+    expect(result).not.toContain('jane roe');
+  });
+
+  it('should return empty string when there is no address at all', () => {
+    expect(cleanEmailAddress('Just A Name')).toBe('');
+  });
 });
 
 describe('stripHtml', () => {

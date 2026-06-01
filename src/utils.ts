@@ -35,21 +35,30 @@ function base64ToUtf8(str: string): string {
 /**
  * Clean and normalize an email address
  * @param email - Raw email string
- * @returns Cleaned, lowercase email address
+ * @returns Cleaned, lowercase email address, or '' when none is found
  */
 export function cleanEmailAddress(email: string): string {
   if (!email) return '';
-  
+
   // Remove angle brackets and extra whitespace
-  let cleaned = email.replace(/[<>]/g, '').trim();
-  
-  // If it's in "Name <email>" format, extract just the email
-  const match = cleaned.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-  if (match) {
-    cleaned = match[1];
+  const cleaned = email.replace(/[<>]/g, '').trim();
+
+  // Preferred: a fully-qualified address with a dotted TLD
+  const fqMatch = cleaned.match(
+    /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/
+  );
+  if (fqMatch) {
+    return fqMatch[1].toLowerCase();
   }
-  
-  return cleaned.toLowerCase();
+
+  // Fallback: a bare "local@host" token (e.g. user@localhost), no display name
+  const bareMatch = cleaned.match(/(?:^|\s)([^\s<>@]+@[^\s<>@]+)(?:\s|$)/);
+  if (bareMatch) {
+    return bareMatch[1].toLowerCase();
+  }
+
+  // No address found — don't leak display-name text
+  return '';
 }
 
 /**
