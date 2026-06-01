@@ -376,3 +376,41 @@ Body`;
   });
 });
 
+describe('MBOX message boundaries', () => {
+  it('does not split on a body line that merely starts with "From "', async () => {
+    const parser = new MBOXParser();
+    const mbox = [
+      'From alice@example.com Mon Jan  1 00:00:00 2024',
+      'From: Alice <alice@example.com>',
+      'Subject: Plans',
+      'Date: Mon, 01 Jan 2024 00:00:00 +0000',
+      '',
+      'Hello,',
+      'From Bob, see you Friday at noon.',
+      'Bye',
+      '',
+    ].join('\n');
+    const result = await parser.parse(Buffer.from(mbox, 'utf-8'));
+    expect(result.emails).toHaveLength(1);
+    expect(result.emails[0].body).toContain('see you Friday');
+  });
+
+  it('unescapes mboxrd ">From" lines in the body', async () => {
+    const parser = new MBOXParser();
+    const mbox = [
+      'From alice@example.com Mon Jan  1 00:00:00 2024',
+      'From: Alice <alice@example.com>',
+      'Subject: Quote',
+      'Date: Mon, 01 Jan 2024 00:00:00 +0000',
+      '',
+      '>From the desk of Alice',
+      'Regards',
+      '',
+    ].join('\n');
+    const result = await parser.parse(Buffer.from(mbox, 'utf-8'));
+    expect(result.emails).toHaveLength(1);
+    expect(result.emails[0].body).toContain('From the desk of Alice');
+    expect(result.emails[0].body).not.toContain('>From the desk');
+  });
+});
+

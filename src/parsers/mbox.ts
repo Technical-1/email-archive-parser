@@ -581,13 +581,14 @@ export class MBOXParser {
   }
 
   /**
-   * Check if a line is a valid MBOX "From " line
+   * Check if a line is a valid MBOX "From " separator line.
+   * A real separator is "From <sender> <Day Mon DD HH:MM:SS YYYY>", so we
+   * require a non-space sender token immediately followed by a 3-letter
+   * weekday token. This prevents prose lines such as
+   * "From Bob, see you Friday" from being treated as message boundaries.
    */
   private isFromLine(line: string): boolean {
-    if (!line.startsWith('From ')) return false;
-    // Validate with day pattern (e.g., "From user@example.com Mon Jan 01 00:00:00 2024")
-    const dayPattern = /(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/;
-    return dayPattern.test(line);
+    return /^From \S+ (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) /.test(line);
   }
 
   /**
@@ -697,8 +698,10 @@ export class MBOXParser {
         bodyStartIndex = lines.length;
       }
 
-      // Extract body content
-      const bodyLines = lines.slice(bodyStartIndex);
+      // Extract body content, unescaping mboxrd ">From " lines (strip one '>').
+      const bodyLines = lines
+        .slice(bodyStartIndex)
+        .map((line) => (/^>+From /.test(line) ? line.slice(1) : line));
       const rawBody = bodyLines.join('\n');
 
       // Parse body based on content type
