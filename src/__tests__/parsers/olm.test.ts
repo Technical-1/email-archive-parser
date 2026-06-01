@@ -248,3 +248,33 @@ describe('OLM email ids', () => {
   });
 });
 
+describe('OLM DOM parse does not double-parse', () => {
+  it('does not fall back to manual parsing when DOM succeeds with zero contacts', () => {
+    class FakeDoc {
+      querySelector() {
+        return null; // no <parsererror>
+      }
+      querySelectorAll() {
+        return [] as unknown[]; // valid document, zero <contact> elements
+      }
+    }
+    class FakeDOMParser {
+      parseFromString() {
+        return new FakeDoc();
+      }
+    }
+    const original = (globalThis as any).DOMParser;
+    (globalThis as any).DOMParser = FakeDOMParser as any;
+    const manualSpy = vi.spyOn(OLMParser.prototype as any, 'parseContactsManually');
+    try {
+      const parser = new OLMParser();
+      const contacts = (parser as any).parseContactsXML('<contacts></contacts>');
+      expect(contacts).toEqual([]);
+      expect(manualSpy).not.toHaveBeenCalled();
+    } finally {
+      manualSpy.mockRestore();
+      (globalThis as any).DOMParser = original;
+    }
+  });
+});
+

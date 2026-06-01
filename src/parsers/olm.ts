@@ -448,64 +448,66 @@ export class OLMParser {
   }
 
   private parseContactsXML(xmlContent: string): Omit<Contact, 'id'>[] {
-    const contacts: Omit<Contact, 'id'>[] = [];
-
     if (typeof DOMParser !== 'undefined') {
       try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(xmlContent, 'text/xml');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlContent, 'text/xml');
 
-      const contactElements = doc.querySelectorAll('contact');
+        if (!doc.querySelector('parsererror')) {
+          const contacts: Omit<Contact, 'id'>[] = [];
+          const contactElements = doc.querySelectorAll('contact');
 
-      contactElements.forEach((contactElement) => {
-        const getTextContent = (selectors: string[]): string => {
-          for (const selector of selectors) {
-            const element = contactElement.querySelector(selector);
-            if (element?.textContent) {
-              return element.textContent.trim();
+          contactElements.forEach((contactElement) => {
+            const getTextContent = (selectors: string[]): string => {
+              for (const selector of selectors) {
+                const element = contactElement.querySelector(selector);
+                if (element?.textContent) {
+                  return element.textContent.trim();
+                }
+              }
+              return '';
+            };
+
+            const displayName = getTextContent([
+              'OPFContactCopyDisplayName',
+              'displayName',
+              'name',
+            ]);
+            const firstName = getTextContent(['OPFContactCopyFirstName', 'firstName']);
+            const lastName = getTextContent(['OPFContactCopyLastName', 'lastName']);
+            const phone = getTextContent(['OPFContactCopyPhoneNumbers', 'phone']);
+
+            let email = '';
+            const emailList = contactElement.querySelector(
+              'OPFContactCopyEmailAddressList, OPFContactCopyDefaultEmailAddress'
+            );
+            if (emailList) {
+              const emailAddr = emailList.querySelector('contactEmailAddress');
+              if (emailAddr) {
+                email = emailAddr.getAttribute('OPFContactEmailAddressAddress') || '';
+              }
             }
-          }
-          return '';
-        };
 
-        const displayName = getTextContent([
-          'OPFContactCopyDisplayName',
-          'displayName',
-          'name',
-        ]);
-        const firstName = getTextContent(['OPFContactCopyFirstName', 'firstName']);
-        const lastName = getTextContent(['OPFContactCopyLastName', 'lastName']);
-        const phone = getTextContent(['OPFContactCopyPhoneNumbers', 'phone']);
+            const name =
+              displayName ||
+              `${firstName} ${lastName}`.trim() ||
+              email.split('@')[0] ||
+              'Unknown';
 
-        let email = '';
-        const emailList = contactElement.querySelector(
-          'OPFContactCopyEmailAddressList, OPFContactCopyDefaultEmailAddress'
-        );
-        if (emailList) {
-          const emailAddr = emailList.querySelector('contactEmailAddress');
-          if (emailAddr) {
-            email = emailAddr.getAttribute('OPFContactEmailAddressAddress') || '';
-          }
-        }
-
-        const name =
-          displayName ||
-          `${firstName} ${lastName}`.trim() ||
-          email.split('@')[0] ||
-          'Unknown';
-
-        if (email || name !== 'Unknown') {
-          contacts.push({
-            name,
-            email: cleanEmailAddress(email),
-            phone: phone || undefined,
-            emailCount: 0,
-            lastEmailDate: new Date(),
+            if (email || name !== 'Unknown') {
+              contacts.push({
+                name,
+                email: cleanEmailAddress(email),
+                phone: phone || undefined,
+                emailCount: 0,
+                lastEmailDate: new Date(),
+              });
+            }
           });
-        }
-      });
 
-        if (contacts.length > 0) return contacts;
+          // DOM parse succeeded — return its result even if empty.
+          return contacts;
+        }
       } catch {
         // Fall through to manual parsing
       }
@@ -558,78 +560,80 @@ export class OLMParser {
   }
 
   private parseCalendarXML(xmlContent: string): Omit<CalendarEvent, 'id'>[] {
-    const events: Omit<CalendarEvent, 'id'>[] = [];
-
     if (typeof DOMParser !== 'undefined') {
       try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(xmlContent, 'text/xml');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlContent, 'text/xml');
 
-      const appointmentElements = doc.querySelectorAll('appointment');
+        if (!doc.querySelector('parsererror')) {
+          const events: Omit<CalendarEvent, 'id'>[] = [];
+          const appointmentElements = doc.querySelectorAll('appointment');
 
-      appointmentElements.forEach((appointmentElement) => {
-        const getTextContent = (selectors: string[]): string => {
-          for (const selector of selectors) {
-            const element = appointmentElement.querySelector(selector);
-            if (element?.textContent) {
-              return element.textContent.trim();
-            }
-          }
-          return '';
-        };
+          appointmentElements.forEach((appointmentElement) => {
+            const getTextContent = (selectors: string[]): string => {
+              for (const selector of selectors) {
+                const element = appointmentElement.querySelector(selector);
+                if (element?.textContent) {
+                  return element.textContent.trim();
+                }
+              }
+              return '';
+            };
 
-        const title = getTextContent([
-          'OPFCalendarEventCopySummary',
-          'OPFCalendarEventCopySubject',
-          'summary',
-          'title',
-        ]);
-        const startDateStr = getTextContent([
-          'OPFCalendarEventCopyStartTime',
-          'startTime',
-        ]);
-        const endDateStr = getTextContent([
-          'OPFCalendarEventCopyEndTime',
-          'endTime',
-        ]);
-        const location = getTextContent([
-          'OPFCalendarEventCopyLocation',
-          'location',
-        ]);
-        const description = getTextContent([
-          'OPFCalendarEventCopyBody',
-            'OPFCalendarEventCopyDescription',
-          'description',
-        ]);
-        const organizer = getTextContent([
-          'OPFCalendarEventCopyOrganizer',
-          'organizer',
-        ]);
-        const isAllDayStr = getTextContent([
-          'OPFCalendarEventGetIsAllDayEvent',
-          'isAllDay',
-        ]);
+            const title = getTextContent([
+              'OPFCalendarEventCopySummary',
+              'OPFCalendarEventCopySubject',
+              'summary',
+              'title',
+            ]);
+            const startDateStr = getTextContent([
+              'OPFCalendarEventCopyStartTime',
+              'startTime',
+            ]);
+            const endDateStr = getTextContent([
+              'OPFCalendarEventCopyEndTime',
+              'endTime',
+            ]);
+            const location = getTextContent([
+              'OPFCalendarEventCopyLocation',
+              'location',
+            ]);
+            const description = getTextContent([
+              'OPFCalendarEventCopyBody',
+              'OPFCalendarEventCopyDescription',
+              'description',
+            ]);
+            const organizer = getTextContent([
+              'OPFCalendarEventCopyOrganizer',
+              'organizer',
+            ]);
+            const isAllDayStr = getTextContent([
+              'OPFCalendarEventGetIsAllDayEvent',
+              'isAllDay',
+            ]);
 
-        if (!title) return;
+            if (!title) return;
 
-        const startDate = startDateStr ? new Date(startDateStr) : new Date();
-        const endDate = endDateStr
-          ? new Date(endDateStr)
-          : new Date(startDate.getTime() + 3600000);
+            const startDate = startDateStr ? new Date(startDateStr) : new Date();
+            const endDate = endDateStr
+              ? new Date(endDateStr)
+              : new Date(startDate.getTime() + 3600000);
 
-        events.push({
-          title,
-          startDate: isNaN(startDate.getTime()) ? new Date() : startDate,
-          endDate: isNaN(endDate.getTime()) ? new Date() : endDate,
-          location: location || undefined,
-          attendees: organizer ? [organizer] : [],
-          description: description || undefined,
-          isAllDay: isAllDayStr === '1' || isAllDayStr?.toLowerCase() === 'true',
-          reminder: false,
-        });
-        });
+            events.push({
+              title,
+              startDate: isNaN(startDate.getTime()) ? new Date() : startDate,
+              endDate: isNaN(endDate.getTime()) ? new Date() : endDate,
+              location: location || undefined,
+              attendees: organizer ? [organizer] : [],
+              description: description || undefined,
+              isAllDay: isAllDayStr === '1' || isAllDayStr?.toLowerCase() === 'true',
+              reminder: false,
+            });
+          });
 
-        if (events.length > 0) return events;
+          // DOM parse succeeded — return its result even if empty.
+          return events;
+        }
       } catch {
         // Fall through to manual parsing
       }
