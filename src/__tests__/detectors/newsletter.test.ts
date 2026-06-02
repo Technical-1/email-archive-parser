@@ -628,4 +628,27 @@ describe('NewsletterDetector subdomain false positives', () => {
     const r = d.detect(email);
     expect(r.isPromotional).toBe(true);
   });
+
+  it('does not flag a transactional mail.* email with only generic footer phrases', () => {
+    const d = new NewsletterDetector();
+    const email = {
+      id: 0,
+      subject: 'Your statement is ready', // NOT a promotional subject
+      sender: 'alerts@mail.mybank.com',
+      recipients: ['me@example.com'],
+      date: new Date('2024-01-01T00:00:00Z'),
+      // 3 generic footer phrases that match marketingBodyPatterns but are common
+      // in legitimate transactional mail. Old code: mail. marker (+20) + body (+20)
+      // crossed the 40 promotional threshold. New code: weak marker (+10) keeps it at 30.
+      body: 'Your statement is ready. Privacy policy. All rights reserved. Manage your email preferences.',
+      attachments: [],
+      size: 100,
+      isRead: true,
+      isStarred: false,
+      folderId: 'inbox',
+    } as any;
+    const r = d.detect(email);
+    expect(r.isPromotional).toBe(false);
+    expect(r.isNewsletter).toBe(false);
+  });
 });
