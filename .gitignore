@@ -42,3 +42,7 @@ debug-*.ts
 
 # React demo dependencies (installed locally)
 examples/react-demo/node_modules/
+
+# Internal task / planning artifacts (not for the public repo)
+.project-hub-tasks.json
+docs/superpowers/
