@@ -234,15 +234,14 @@ export class NewsletterDetector {
     const newsletters: Newsletter[] = [];
 
     senderMap.forEach((data, sender) => {
-      // Compile-safe null guard (Hub 1016 part 1): treat an unknown date as 0
-      // (epoch) for ordering. Full null-aware sorting lands in the detector
-      // rework task.
-      const sortedEntries = [...data.entries].sort(
-        (a, b) =>
-          (b.email.date ? b.email.date.getTime() : 0) -
-          (a.email.date ? a.email.date.getTime() : 0)
+      // Null-aware ordering (Hub 1016 part 2): emails with an unknown (null)
+      // date are excluded from ordering and frequency math. emailCount still
+      // reflects every detected email for this sender.
+      const datedEntries = data.entries.filter((e) => e.email.date instanceof Date);
+      const sortedEntries = [...datedEntries].sort(
+        (a, b) => (b.email.date as Date).getTime() - (a.email.date as Date).getTime()
       );
-      const latest = sortedEntries[0];
+      const latest = sortedEntries[0] ?? data.entries[0];
       const unsubscribeLinks = Array.from(data.unsubscribeLinks);
       const frequency = this.calculateFrequency(sortedEntries.map((e) => e.email));
 
@@ -250,7 +249,7 @@ export class NewsletterDetector {
         senderEmail: sender,
         senderName: latest.email.senderName || this.extractNameFromEmail(sender),
         emailCount: data.entries.length,
-        lastEmailDate: latest.email.date,
+        lastEmailDate: (sortedEntries[0]?.email.date as Date) ?? null,
         frequency,
         unsubscribeLink: unsubscribeLinks[0],
         isPromotional: latest.result.isPromotional,
@@ -320,31 +319,27 @@ export class NewsletterDetector {
    * @returns Estimated frequency
    */
   private calculateFrequency(emails: Email[]): 'daily' | 'weekly' | 'monthly' | 'irregular' {
-    if (emails.length < 2) {
+    // Null-aware frequency (Hub 1016 part 2): emails with an unknown (null)
+    // date are excluded from the average-interval math entirely rather than
+    // being treated as epoch 0.
+    const dates = emails
+      .map((e) => e.date)
+      .filter((d): d is Date => d instanceof Date)
+      .map((d) => d.getTime());
+
+    if (dates.length < 2) {
       return 'irregular';
     }
 
-    // Calculate average days between emails
-    // Compile-safe null guard (Hub 1016 part 1): treat an unknown date as 0
-    // (epoch). Full null-aware frequency math lands in the detector rework task.
-    const dates = emails.map(e => (e.date ? e.date.getTime() : 0));
     let totalDays = 0;
-    
     for (let i = 0; i < dates.length - 1; i++) {
-      const daysDiff = (dates[i] - dates[i + 1]) / (1000 * 60 * 60 * 24);
-      totalDays += daysDiff;
+      totalDays += (dates[i] - dates[i + 1]) / (1000 * 60 * 60 * 24);
     }
-    
     const avgDays = totalDays / (dates.length - 1);
 
-    if (avgDays <= 2) {
-      return 'daily';
-    } else if (avgDays <= 10) {
-      return 'weekly';
-    } else if (avgDays <= 45) {
-      return 'monthly';
-    }
-    
+    if (avgDays <= 2) return 'daily';
+    if (avgDays <= 10) return 'weekly';
+    if (avgDays <= 45) return 'monthly';
     return 'irregular';
   }
 

@@ -562,3 +562,32 @@ describe('NewsletterDetector', () => {
   });
 });
 
+describe('NewsletterDetector null dates', () => {
+  it('computes frequency only from known dates and ignores nulls', () => {
+    const d = new NewsletterDetector();
+    const base = {
+      subject: 'Weekly newsletter',
+      sender: 'news@example.com',
+      senderName: 'Example',
+      recipients: ['me@example.com'],
+      body: 'unsubscribe here. privacy policy. all rights reserved.',
+      htmlBody: '<a href="https://example.com/unsubscribe">unsubscribe</a>',
+      attachments: [],
+      size: 100,
+      isRead: true,
+      isStarred: false,
+      folderId: 'inbox',
+    };
+    const a = new Date('2024-01-01T00:00:00Z');
+    const b = new Date('2024-01-08T00:00:00Z');
+    const out = d.detectBatch([
+      { ...base, id: 0, date: a } as any,
+      { ...base, id: 1, date: b } as any,
+      { ...base, id: 2, date: null } as any,
+    ]);
+    expect(out.length).toBe(1);
+    expect(out[0].lastEmailDate).toEqual(b);
+    expect(out[0].frequency).toBe('weekly');
+  });
+});
+
