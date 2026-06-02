@@ -341,3 +341,47 @@ export function formatDomainAsName(domain: string): string {
     .join(' ') || domain;
 }
 
+/**
+ * Parse a monetary amount string into a number, resolving the decimal
+ * separator from its position rather than assuming a single locale. Handles
+ * space and apostrophe (CHF) grouping, comma-decimal (EUR/BRL) and dot-decimal.
+ * @param amountStr - Raw captured amount (e.g. '1.234,56', "1'234.56")
+ * @param currency - Currency code, used only to disambiguate ambiguous formats
+ * @returns Parsed number, or 0 when unparseable
+ */
+export function parseMoney(amountStr: string, currency: string): number {
+  let cleaned = amountStr.replace(/[\s']/g, '');
+
+  const commaDecimalLocale = currency === 'EUR' || currency === 'BRL';
+  const commaDecimalOrCHF = commaDecimalLocale || currency === 'CHF';
+  const lastComma = cleaned.lastIndexOf(',');
+  const lastDot = cleaned.lastIndexOf('.');
+
+  if (lastComma !== -1 && lastDot !== -1) {
+    if (lastComma > lastDot) {
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  } else if (lastComma !== -1) {
+    const tail = cleaned.slice(lastComma + 1);
+    const oneComma = cleaned.indexOf(',') === lastComma;
+    if (tail.length >= 1 && tail.length <= 2 && (commaDecimalOrCHF || oneComma)) {
+      cleaned = cleaned.replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  } else if (lastDot !== -1) {
+    const tail = cleaned.slice(lastDot + 1);
+    const oneDot = cleaned.indexOf('.') === lastDot;
+    if (commaDecimalLocale) {
+      cleaned = cleaned.replace(/\./g, '');
+    } else if (!(tail.length >= 1 && tail.length <= 2 && oneDot)) {
+      cleaned = cleaned.replace(/\./g, '');
+    }
+  }
+
+  const amount = parseFloat(cleaned);
+  return isNaN(amount) ? 0 : amount;
+}
+
