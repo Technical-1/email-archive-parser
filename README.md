@@ -1,5 +1,9 @@
 # Email Archive Parser
 
+<p align="center">
+  <img src=".portfolio/preview.png" alt="Email Archive Parser — parse .olm, .mbox, and .zip archives and detect accounts, purchases, subscriptions, and newsletters" width="820">
+</p>
+
 Parse OLM and MBOX email archives and extract structured signal: accounts, purchases, subscriptions, and newsletters.
 
 `@technical-1/email-archive-parser` is a dependency-light TypeScript library for turning raw email-export files into typed `Email` objects, then mining those objects for the things people actually care about — which services they signed up for, what they bought, what they pay for monthly, and which senders are newsletters. It runs the same code in Node.js and the browser, streams multi-gigabyte MBOX files without exhausting memory, and ships as both CommonJS and ESM with full type declarations.

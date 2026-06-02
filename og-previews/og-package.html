@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    .og-card {
+      width: 1200px;
+      height: 630px;
+      background: #0f172a;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    /* Subtle grid pattern */
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* Top glow */
+    .glow-top {
+      position: absolute;
+      top: -140px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 640px;
+      height: 420px;
+      background: radial-gradient(ellipse, rgba(59, 130, 246, 0.20) 0%, transparent 70%);
+    }
+
+    /* Bottom accent line */
+    .accent-line {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, transparent, #3b82f6, #2563eb, #3b82f6, transparent);
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      padding: 48px 60px;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .icon-wrap {
+      width: 84px;
+      height: 84px;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 40px rgba(59, 130, 246, 0.30), 0 8px 32px rgba(0, 0, 0, 0.30);
+      flex-shrink: 0;
+    }
+
+    .icon-wrap svg { width: 50px; height: 50px; }
+
+    .headline {
+      font-size: 72px;
+      font-weight: 800;
+      color: #f1f5f9;
+      letter-spacing: -0.03em;
+      line-height: 1.0;
+    }
+
+    .tagline {
+      font-size: 25px;
+      font-weight: 400;
+      color: #94a3b8;
+      text-align: center;
+      max-width: 940px;
+      line-height: 1.35;
+    }
+
+    /* parse -> detect flow */
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      margin-top: 6px;
+    }
+
+    .flow-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .flow-label {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    .pills {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* input formats: code-like, neutral */
+    .pill-code {
+      padding: 11px 22px;
+      background: rgba(148, 163, 184, 0.10);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 12px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 22px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    /* outputs: brand blue */
+    .pill-out {
+      padding: 11px 22px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.28);
+      border-radius: 999px;
+      font-size: 21px;
+      font-weight: 500;
+      color: #93c5fd;
+    }
+
+    .arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: #3b82f6;
+    }
+    .arrow svg { width: 56px; height: 56px; }
+
+    /* install bar */
+    .install {
+      margin-top: 14px;
+      padding: 15px 30px;
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid rgba(59, 130, 246, 0.22);
+      border-radius: 14px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 24px;
+      font-weight: 600;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .install .prompt { color: #3b82f6; }
+    .install .dim { color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="og-card">
+    <div class="grid-bg"></div>
+    <div class="glow-top"></div>
+    <div class="accent-line"></div>
+
+    <div class="content">
+      <div class="header-row">
+        <div class="icon-wrap">
+          <svg viewBox="0 0 100 100" fill="none">
+            <path d="M20 35 L50 55 L80 35 L80 70 L20 70 Z" fill="white" opacity="0.92"/>
+            <path d="M20 30 L50 50 L80 30" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="headline">Email Archive Parser</div>
+      </div>
+
+      <div class="tagline">
+        A TypeScript library that turns raw email exports into structured data &mdash; and tells you what's inside.
+      </div>
+
+      <div class="flow">
+        <div class="flow-group">
+          <div class="flow-label">Parse</div>
+          <div class="pills">
+            <span class="pill-code">.olm</span>
+            <span class="pill-code">.mbox</span>
+            <span class="pill-code">.zip</span>
+          </div>
+        </div>
+
+        <div class="arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="12" x2="19" y2="12"/>
+            <polyline points="13 6 19 12 13 18"/>
+          </svg>
+        </div>
+
+        <div class="flow-group">
+          <div class="flow-label">Detect</div>
+          <div class="pills">
+            <span class="pill-out">Accounts</span>
+            <span class="pill-out">Purchases</span>
+            <span class="pill-out">Subscriptions</span>
+            <span class="pill-out">Newsletters</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="install">
+        <span class="prompt">&#10095;</span>
+        <span><span class="dim">npm&nbsp;i</span> @technical-1/email-archive-parser</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
