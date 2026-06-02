@@ -96,6 +96,9 @@ export class MBOXParser {
         result.emails.push(...(batch as Email[]));
       });
       result.stats.emailCount = count;
+      if ((options as MBOXParseOptions).extractContacts !== false) {
+        this.extractContactsFromEmails(result);
+      }
       this.assignEmailIds(result);
       return result;
     }
@@ -109,6 +112,9 @@ export class MBOXParser {
         result.emails.push(...(batch as Email[]));
       });
       result.stats.emailCount = count;
+      if ((options as MBOXParseOptions).extractContacts !== false) {
+        this.extractContactsFromEmails(result);
+      }
       this.assignEmailIds(result);
       return result;
     }
@@ -485,7 +491,10 @@ export class MBOXParser {
     onProgress?: (progress: ParseProgress) => void,
     onBatch?: EmailBatchCallback
   ): Promise<number> {
-    const bufferSize = buffer.length;
+    // Use the real allocated byte length for slicing math. For any genuine
+    // Buffer this equals buffer.length; using byteLength keeps subarray() calls
+    // within the actual allocation even if the .length property is unusual.
+    const bufferSize = buffer.byteLength;
     // Use 100MB chunks to stay well under the 512MB string limit
     const CHUNK_SIZE = 100 * 1024 * 1024;
     let offset = 0;

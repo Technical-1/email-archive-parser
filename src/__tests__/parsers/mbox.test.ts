@@ -495,3 +495,24 @@ describe('MBOX nullable dates', () => {
     expect(result.emails[0].date).toBeNull();
   });
 });
+
+
+describe('MBOX contact extraction on large-buffer path', () => {
+  it('extracts contacts when the buffer exceeds the string-size threshold', async () => {
+    const mbox = [
+      'From a@x.com Mon Jan  1 00:00:00 2024',
+      'From: Alice <alice@example.com>',
+      'Subject: Hello',
+      'Date: Mon, 01 Jan 2024 00:00:00 +0000',
+      '',
+      'Body.',
+      '',
+    ].join('\n');
+    const buf = Buffer.from(mbox, 'utf-8');
+    // Spoof a length over the 500MB MAX_STRING_SIZE so parse() takes the chunked branch.
+    Object.defineProperty(buf, 'length', { value: 600 * 1024 * 1024 });
+    const result = await new MBOXParser().parse(buf);
+    expect(result.contacts.length).toBeGreaterThan(0);
+    expect(result.stats.contactCount).toBe(result.contacts.length);
+  });
+});
