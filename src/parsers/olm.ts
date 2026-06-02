@@ -12,13 +12,7 @@ import type {
   ParseResult,
   ParseProgress 
 } from '../types';
-import { cleanEmailAddress, normalizeSubject } from '../utils';
-
-/** UTF-8 byte length of a string, cross-platform (Buffer in Node, TextEncoder in browser). */
-function byteLength(str: string): number {
-  if (typeof Buffer !== 'undefined') return Buffer.byteLength(str, 'utf-8');
-  return new TextEncoder().encode(str).length;
-}
+import { cleanEmailAddress, normalizeSubject, byteLength } from '../utils';
 
 /**
  * Parser for Outlook for Mac (.olm) archive files

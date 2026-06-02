@@ -129,6 +129,17 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
+ * UTF-8 byte length of a string, cross-platform.
+ * Uses Node's Buffer when available, otherwise TextEncoder (browser).
+ * @param str - Input string
+ * @returns Number of UTF-8 bytes
+ */
+export function byteLength(str: string): number {
+  if (typeof Buffer !== 'undefined') return Buffer.byteLength(str, 'utf-8');
+  return new TextEncoder().encode(str).length;
+}
+
+/**
  * Generate initials from a name or email
  * @param name - Name or email address
  * @returns Two-character initials

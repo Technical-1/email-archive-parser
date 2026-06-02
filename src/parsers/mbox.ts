@@ -9,18 +9,13 @@ import {
   normalizeSubject,
   decodeQuotedPrintable,
   decodeHeaderValue,
+  byteLength,
 } from '../utils';
 
 /**
  * Callback for streaming email processing (for large files)
  */
 export type EmailBatchCallback = (emails: Omit<Email, 'id'>[], batchNumber: number) => Promise<void>;
-
-/** UTF-8 byte length of a string, cross-platform (Buffer in Node, TextEncoder in browser). */
-function byteLength(str: string): number {
-  if (typeof Buffer !== 'undefined') return Buffer.byteLength(str, 'utf-8');
-  return new TextEncoder().encode(str).length;
-}
 
 /**
  * Extended options for MBOX parsing
