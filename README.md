@@ -85,6 +85,12 @@ import { PurchaseDetector } from '@technical-1/email-archive-parser';
 const purchases = new PurchaseDetector().detectBatch(result.emails);
 ```
 
+## Migrating to v3
+
+- `Email.date` can now be `null` — and so can `Contact.lastEmailDate`, `Account.signupDate`, `Subscription.lastRenewalDate`, and `Newsletter.lastEmailDate`. Parsers no longer fall back to the current time for a missing/unparseable `Date:` header, so null-check before calling `Date` methods.
+- `Subscription.monthlyAmount` and `Subscription.frequency` are now optional and are only present when a billing cadence was actually detected.
+- `Email.size` is now an uncapped UTF-8 byte count, not a (previously 100,000-capped) character count.
+
 ## Development
 
 ```bash

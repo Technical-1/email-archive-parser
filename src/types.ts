@@ -41,8 +41,8 @@ export interface Email {
   cc?: string[];
   /** BCC recipients */
   bcc?: string[];
-  /** Email sent/received date */
-  date: Date;
+  /** Email sent/received date, or null when the Date header is missing/unparseable */
+  date: Date | null;
   /** Plain text body */
   body: string;
   /** HTML body (if available) */
@@ -87,8 +87,8 @@ export interface Contact {
   tags?: string[];
   /** Number of emails from this contact */
   emailCount: number;
-  /** Date of last email from this contact */
-  lastEmailDate: Date;
+  /** Date of last email from this contact, or null when unknown */
+  lastEmailDate: Date | null;
 }
 
 /**
@@ -141,8 +141,8 @@ export interface Account {
   serviceName: string;
   /** ID of the signup email */
   signupEmailId?: number;
-  /** Date of account creation */
-  signupDate: Date;
+  /** Date of account creation, or null when the source email date is unknown */
+  signupDate: Date | null;
   /** Type of service */
   serviceType: ServiceType;
   /** Domain of the service */
@@ -212,14 +212,14 @@ export interface Subscription {
   id?: number;
   /** Service name */
   serviceName: string;
-  /** Monthly cost (normalized to monthly for comparison) */
-  monthlyAmount: number;
+  /** Monthly cost, normalized to monthly — only set when frequency is known */
+  monthlyAmount?: number;
   /** Currency code */
   currency: string;
-  /** Billing frequency */
-  frequency: SubscriptionFrequency;
-  /** Last renewal/billing date */
-  lastRenewalDate: Date;
+  /** Billing frequency — undefined when no cadence signal was found */
+  frequency?: SubscriptionFrequency;
+  /** Last renewal/billing date, or null when the source email date is unknown */
+  lastRenewalDate: Date | null;
   /** Next renewal date (if known) */
   nextRenewalDate?: Date;
   /** IDs of related emails */
@@ -242,8 +242,8 @@ export interface Newsletter {
   senderName: string;
   /** Number of emails received */
   emailCount: number;
-  /** Date of last email */
-  lastEmailDate: Date;
+  /** Date of last email, or null when unknown */
+  lastEmailDate: Date | null;
   /** Estimated sending frequency */
   frequency?: 'daily' | 'weekly' | 'monthly' | 'irregular';
   /** Unsubscribe link (if found) */

@@ -11,6 +11,7 @@ import {
   decodeQuotedPrintable,
   decodeHeaderValue,
   formatDomainAsName,
+  parseMoney,
 } from '../utils';
 
 describe('cleanEmailAddress', () => {
@@ -392,6 +393,30 @@ describe('formatDomainAsName', () => {
 
   it('should replace hyphens with spaces', () => {
     expect(formatDomainAsName('my-company.com')).toBe('My Company');
+  });
+});
+
+describe('parseMoney', () => {
+  it('parses US grouping (1,234.56)', () => {
+    expect(parseMoney('1,234.56', 'USD')).toBe(1234.56);
+  });
+  it('parses EUR comma-decimal (1.234,56)', () => {
+    expect(parseMoney('1.234,56', 'EUR')).toBe(1234.56);
+  });
+  it('parses CHF apostrophe grouping (1\'234.56)', () => {
+    expect(parseMoney("1'234.56", 'CHF')).toBe(1234.56);
+  });
+  it('parses a plain integer', () => {
+    expect(parseMoney('1500', 'JPY')).toBe(1500);
+  });
+  it('returns 0 for garbage', () => {
+    expect(parseMoney('abc', 'USD')).toBe(0);
+  });
+  it('treats a lone dot with a 2-digit tail as decimal even for EUR (14.99)', () => {
+    expect(parseMoney('14.99', 'EUR')).toBe(14.99);
+  });
+  it('treats a lone dot with a 3-digit tail as EUR grouping (1.234)', () => {
+    expect(parseMoney('1.234', 'EUR')).toBe(1234);
   });
 });
 

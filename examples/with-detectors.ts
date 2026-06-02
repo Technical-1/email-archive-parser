@@ -48,10 +48,14 @@ async function parseWithAllDetectors(file: File) {
   // Subscriptions
   console.log(`\n🔄 Subscriptions Found: ${result.subscriptions?.length || 0}`);
   const monthlyTotal =
-    result.subscriptions?.reduce((sum, s) => sum + s.monthlyAmount, 0) || 0;
+    result.subscriptions?.reduce((sum, s) => sum + (s.monthlyAmount ?? 0), 0) || 0;
   console.log(`   Monthly cost: $${monthlyTotal.toFixed(2)}`);
   result.subscriptions?.forEach((sub) => {
-    console.log(`   - ${sub.serviceName}: $${sub.monthlyAmount}/${sub.frequency}`);
+    const cost =
+      sub.monthlyAmount !== undefined
+        ? `$${sub.monthlyAmount}/${sub.frequency}`
+        : 'amount/cadence unknown';
+    console.log(`   - ${sub.serviceName}: ${cost}`);
   });
 
   // Newsletters

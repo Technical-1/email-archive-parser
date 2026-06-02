@@ -145,11 +145,18 @@ export class NewsletterDetector {
       promotionalScore += 10;
     }
 
-    // Check sender domain
+    // Sender domain. Bare subdomain markers (mail./news./updates./...) are only
+    // WEAK evidence: they corroborate marketing scores but cannot, on their own,
+    // push an otherwise-transactional email over the threshold. Full known
+    // promotional domains (e.g. em.ebay.com) remain strong.
     const domain = extractDomain(sender);
-    if (this.isPromotionalSenderDomain(domain)) {
+    const senderSignal = this.classifyPromotionalSender(domain);
+    if (senderSignal === 'strong') {
       newsletterScore += 20;
       promotionalScore += 20;
+    } else if (senderSignal === 'weak' && marketingPatternMatches >= 1) {
+      newsletterScore += 10;
+      promotionalScore += 10;
     }
 
     // Extract unsubscribe link
@@ -177,29 +184,27 @@ export class NewsletterDetector {
   }
 
   /**
-   * Decide whether a sender domain looks like a marketing/newsletter sender.
-   * Entries in knownPromotionalDomains ending in '.' are subdomain markers
-   * (e.g. 'newsletter.') matched only at the START of the domain so they sit
-   * on a label boundary; the rest are full domains matched boundary-safely via
-   * matchKnownDomain. This avoids the old `domain.includes('mail.')` bug that
-   * flagged gmail.com/hotmail.com as promotional because they contain the
-   * substring "mail.".
-   * @param domain - Sender domain (e.g. from extractDomain)
-   * @returns true if the domain is a known promotional/newsletter sender
+   * Classify a sender domain's promotional signal strength.
+   * - 'strong': a full known promotional domain (matched boundary-safely).
+   * - 'weak': only a bare subdomain marker (mail./news./...) matched at the
+   *   label boundary — corroborating evidence, not decisive on its own.
+   * - 'none': no marker.
    */
-  private isPromotionalSenderDomain(domain: string): boolean {
+  private classifyPromotionalSender(domain: string): 'strong' | 'weak' | 'none' {
     const d = domain.trim().toLowerCase();
-    if (!d) return false;
+    if (!d) return 'none';
 
     const fullDomains: Record<string, true> = {};
+    let weak = false;
     for (const entry of this.knownPromotionalDomains) {
       if (entry.endsWith('.')) {
-        if (d.startsWith(entry)) return true;
+        if (d.startsWith(entry)) weak = true;
       } else {
         fullDomains[entry] = true;
       }
     }
-    return matchKnownDomain(d, fullDomains) !== null;
+    if (matchKnownDomain(d, fullDomains) !== null) return 'strong';
+    return weak ? 'weak' : 'none';
   }
 
   /**
@@ -234,10 +239,14 @@ export class NewsletterDetector {
     const newsletters: Newsletter[] = [];
 
     senderMap.forEach((data, sender) => {
-      const sortedEntries = [...data.entries].sort(
-        (a, b) => new Date(b.email.date).getTime() - new Date(a.email.date).getTime()
+      // Null-aware ordering (Hub 1016 part 2): emails with an unknown (null)
+      // date are excluded from ordering and frequency math. emailCount still
+      // reflects every detected email for this sender.
+      const datedEntries = data.entries.filter((e) => e.email.date instanceof Date);
+      const sortedEntries = [...datedEntries].sort(
+        (a, b) => (b.email.date as Date).getTime() - (a.email.date as Date).getTime()
       );
-      const latest = sortedEntries[0];
+      const latest = sortedEntries[0] ?? data.entries[0];
       const unsubscribeLinks = Array.from(data.unsubscribeLinks);
       const frequency = this.calculateFrequency(sortedEntries.map((e) => e.email));
 
@@ -245,7 +254,7 @@ export class NewsletterDetector {
         senderEmail: sender,
         senderName: latest.email.senderName || this.extractNameFromEmail(sender),
         emailCount: data.entries.length,
-        lastEmailDate: new Date(latest.email.date),
+        lastEmailDate: (sortedEntries[0]?.email.date as Date) ?? null,
         frequency,
         unsubscribeLink: unsubscribeLinks[0],
         isPromotional: latest.result.isPromotional,
@@ -315,29 +324,27 @@ export class NewsletterDetector {
    * @returns Estimated frequency
    */
   private calculateFrequency(emails: Email[]): 'daily' | 'weekly' | 'monthly' | 'irregular' {
-    if (emails.length < 2) {
+    // Null-aware frequency (Hub 1016 part 2): emails with an unknown (null)
+    // date are excluded from the average-interval math entirely rather than
+    // being treated as epoch 0.
+    const dates = emails
+      .map((e) => e.date)
+      .filter((d): d is Date => d instanceof Date)
+      .map((d) => d.getTime());
+
+    if (dates.length < 2) {
       return 'irregular';
     }
 
-    // Calculate average days between emails
-    const dates = emails.map(e => new Date(e.date).getTime());
     let totalDays = 0;
-    
     for (let i = 0; i < dates.length - 1; i++) {
-      const daysDiff = (dates[i] - dates[i + 1]) / (1000 * 60 * 60 * 24);
-      totalDays += daysDiff;
+      totalDays += (dates[i] - dates[i + 1]) / (1000 * 60 * 60 * 24);
     }
-    
     const avgDays = totalDays / (dates.length - 1);
 
-    if (avgDays <= 2) {
-      return 'daily';
-    } else if (avgDays <= 10) {
-      return 'weekly';
-    } else if (avgDays <= 45) {
-      return 'monthly';
-    }
-    
+    if (avgDays <= 2) return 'daily';
+    if (avgDays <= 10) return 'weekly';
+    if (avgDays <= 45) return 'monthly';
     return 'irregular';
   }
 

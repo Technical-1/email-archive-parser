@@ -562,3 +562,93 @@ describe('NewsletterDetector', () => {
   });
 });
 
+describe('NewsletterDetector null dates', () => {
+  it('computes frequency only from known dates and ignores nulls', () => {
+    const d = new NewsletterDetector();
+    const base = {
+      subject: 'Weekly newsletter',
+      sender: 'news@example.com',
+      senderName: 'Example',
+      recipients: ['me@example.com'],
+      body: 'unsubscribe here. privacy policy. all rights reserved.',
+      htmlBody: '<a href="https://example.com/unsubscribe">unsubscribe</a>',
+      attachments: [],
+      size: 100,
+      isRead: true,
+      isStarred: false,
+      folderId: 'inbox',
+    };
+    const a = new Date('2024-01-01T00:00:00Z');
+    const b = new Date('2024-01-08T00:00:00Z');
+    const out = d.detectBatch([
+      { ...base, id: 0, date: a } as any,
+      { ...base, id: 1, date: b } as any,
+      { ...base, id: 2, date: null } as any,
+    ]);
+    expect(out.length).toBe(1);
+    expect(out[0].lastEmailDate).toEqual(b);
+    expect(out[0].frequency).toBe('weekly');
+  });
+});
+
+
+describe('NewsletterDetector subdomain false positives', () => {
+  function transactional(sender: string) {
+    return {
+      id: 0,
+      subject: 'Your statement is ready',
+      sender,
+      recipients: ['me@example.com'],
+      date: new Date('2024-01-01T00:00:00Z'),
+      // No marketing body signals at all.
+      body: 'Your monthly statement is now available in online banking.',
+      attachments: [],
+      size: 100,
+      isRead: true,
+      isStarred: false,
+      folderId: 'inbox',
+    } as any;
+  }
+
+  it('does not flag a transactional mail.* subdomain as promotional', () => {
+    const d = new NewsletterDetector();
+    const r = d.detect(transactional('alerts@mail.mybank.com'));
+    expect(r.isPromotional).toBe(false);
+    expect(r.isNewsletter).toBe(false);
+  });
+
+  it('still flags a real marketing blast from a promo subdomain', () => {
+    const d = new NewsletterDetector();
+    const email = {
+      ...transactional('deals@news.shop.com'),
+      subject: 'Save 50% — flash sale ends tonight!',
+      body: 'Limited time. Unsubscribe. Privacy policy. All rights reserved.',
+      htmlBody: '<a href="https://shop.com/unsubscribe">unsubscribe</a>',
+    };
+    const r = d.detect(email);
+    expect(r.isPromotional).toBe(true);
+  });
+
+  it('does not flag a transactional mail.* email with only generic footer phrases', () => {
+    const d = new NewsletterDetector();
+    const email = {
+      id: 0,
+      subject: 'Your statement is ready', // NOT a promotional subject
+      sender: 'alerts@mail.mybank.com',
+      recipients: ['me@example.com'],
+      date: new Date('2024-01-01T00:00:00Z'),
+      // 3 generic footer phrases that match marketingBodyPatterns but are common
+      // in legitimate transactional mail. Old code: mail. marker (+20) + body (+20)
+      // crossed the 40 promotional threshold. New code: weak marker (+10) keeps it at 30.
+      body: 'Your statement is ready. Privacy policy. All rights reserved. Manage your email preferences.',
+      attachments: [],
+      size: 100,
+      isRead: true,
+      isStarred: false,
+      folderId: 'inbox',
+    } as any;
+    const r = d.detect(email);
+    expect(r.isPromotional).toBe(false);
+    expect(r.isNewsletter).toBe(false);
+  });
+});

@@ -9,6 +9,7 @@ import {
   normalizeSubject,
   decodeQuotedPrintable,
   decodeHeaderValue,
+  byteLength,
 } from '../utils';
 
 /**
@@ -96,6 +97,9 @@ export class MBOXParser {
         result.emails.push(...(batch as Email[]));
       });
       result.stats.emailCount = count;
+      if ((options as MBOXParseOptions).extractContacts !== false) {
+        this.extractContactsFromEmails(result);
+      }
       this.assignEmailIds(result);
       return result;
     }
@@ -109,6 +113,9 @@ export class MBOXParser {
         result.emails.push(...(batch as Email[]));
       });
       result.stats.emailCount = count;
+      if ((options as MBOXParseOptions).extractContacts !== false) {
+        this.extractContactsFromEmails(result);
+      }
       this.assignEmailIds(result);
       return result;
     }
@@ -333,14 +340,14 @@ export class MBOXParser {
    * Extract contacts from email senders
    */
   private extractContactsFromEmails(result: ParseResult): void {
-    const senderMap = new Map<string, { name: string; emailCount: number; lastEmailDate: Date }>();
+    const senderMap = new Map<string, { name: string; emailCount: number; lastEmailDate: Date | null }>();
 
     for (const email of result.emails) {
       if (email.sender && email.sender !== 'unknown@example.com') {
         const existing = senderMap.get(email.sender);
         if (existing) {
           existing.emailCount++;
-          if (email.date > existing.lastEmailDate) {
+          if (email.date && (!existing.lastEmailDate || email.date > existing.lastEmailDate)) {
             existing.lastEmailDate = email.date;
           }
         } else {
@@ -485,7 +492,10 @@ export class MBOXParser {
     onProgress?: (progress: ParseProgress) => void,
     onBatch?: EmailBatchCallback
   ): Promise<number> {
-    const bufferSize = buffer.length;
+    // Use the real allocated byte length for slicing math. For any genuine
+    // Buffer this equals buffer.length; using byteLength keeps subarray() calls
+    // within the actual allocation even if the .length property is unusual.
+    const bufferSize = buffer.byteLength;
     // Use 100MB chunks to stay well under the 512MB string limit
     const CHUNK_SIZE = 100 * 1024 * 1024;
     let offset = 0;
@@ -829,11 +839,11 @@ export class MBOXParser {
         sender: cleanEmailAddress(sender),
         senderName: senderName || undefined,
         recipients,
-        date: date || new Date(),
+        date,
         body: trimmedBody || (htmlBody ? this.stripHtml(htmlBody) : ''),
         htmlBody,
         attachments: [],
-        size: Math.min(lines.join('\n').length, 100000), // Cap size calculation
+        size: byteLength(lines.join('\n')),
         isRead,
         isStarred,
         folderId,

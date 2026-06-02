@@ -129,6 +129,17 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
+ * UTF-8 byte length of a string, cross-platform.
+ * Uses Node's Buffer when available, otherwise TextEncoder (browser).
+ * @param str - Input string
+ * @returns Number of UTF-8 bytes
+ */
+export function byteLength(str: string): number {
+  if (typeof Buffer !== 'undefined') return Buffer.byteLength(str, 'utf-8');
+  return new TextEncoder().encode(str).length;
+}
+
+/**
  * Generate initials from a name or email
  * @param name - Name or email address
  * @returns Two-character initials
@@ -339,5 +350,50 @@ export function formatDomainAsName(domain: string): string {
     .filter(word => word.length > 0)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ') || domain;
+}
+
+/**
+ * Parse a monetary amount string into a number, resolving the decimal
+ * separator from its position rather than assuming a single locale. Handles
+ * space and apostrophe (CHF) grouping, comma-decimal (EUR/BRL) and dot-decimal.
+ * @param amountStr - Raw captured amount (e.g. '1.234,56', "1'234.56")
+ * @param currency - Currency code, used only to disambiguate ambiguous formats
+ * @returns Parsed number, or 0 when unparseable
+ */
+export function parseMoney(amountStr: string, currency: string): number {
+  let cleaned = amountStr.replace(/[\s']/g, '');
+
+  const commaDecimalLocale = currency === 'EUR' || currency === 'BRL';
+  const commaDecimalOrCHF = commaDecimalLocale || currency === 'CHF';
+  const lastComma = cleaned.lastIndexOf(',');
+  const lastDot = cleaned.lastIndexOf('.');
+
+  if (lastComma !== -1 && lastDot !== -1) {
+    if (lastComma > lastDot) {
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  } else if (lastComma !== -1) {
+    const tail = cleaned.slice(lastComma + 1);
+    const oneComma = cleaned.indexOf(',') === lastComma;
+    if (tail.length >= 1 && tail.length <= 2 && (commaDecimalOrCHF || oneComma)) {
+      cleaned = cleaned.replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  } else if (lastDot !== -1) {
+    const tail = cleaned.slice(lastDot + 1);
+    const oneDot = cleaned.indexOf('.') === lastDot;
+    // A lone dot with a 1-2 digit tail is a decimal point in EVERY locale
+    // (1-2 digits is never valid 3-digit thousands grouping). Otherwise the
+    // dot(s) are grouping separators (e.g. EUR "1.234" -> 1234, "1.234.567").
+    if (!(tail.length >= 1 && tail.length <= 2 && oneDot)) {
+      cleaned = cleaned.replace(/\./g, '');
+    }
+  }
+
+  const amount = parseFloat(cleaned);
+  return isNaN(amount) ? 0 : amount;
 }
 

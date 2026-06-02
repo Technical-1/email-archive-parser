@@ -307,7 +307,10 @@ export class AccountDetector {
         } else {
           const existing = accountMap.get(key)!;
           existing.emailCount++;
-          if (email.date < existing.signupDate) {
+          // Compile-safe null guard (Hub 1016 part 1): only adopt an earlier
+          // signup date when both the candidate and the existing date are
+          // known. Full null-aware semantics land in the detector rework task.
+          if (email.date && (!existing.signupDate || email.date < existing.signupDate)) {
             existing.signupDate = email.date;
             existing.signupEmailId = email.id;
           }

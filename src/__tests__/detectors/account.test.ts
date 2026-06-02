@@ -326,3 +326,27 @@ describe('AccountDetector', () => {
   });
 });
 
+describe('AccountDetector null dates', () => {
+  it('prefers a known date over a null one for signupDate', () => {
+    const d = new AccountDetector();
+    const base = {
+      subject: 'Welcome to Netflix!',
+      sender: 'info@netflix.com',
+      recipients: ['me@example.com'],
+      body: 'Your account has been created.',
+      attachments: [],
+      size: 100,
+      isRead: true,
+      isStarred: false,
+      folderId: 'inbox',
+    };
+    const known = new Date('2020-05-01T00:00:00Z');
+    const accounts = d.detectBatch([
+      { ...base, id: 0, date: null } as any,
+      { ...base, id: 1, date: known } as any,
+    ]);
+    expect(accounts.length).toBe(1);
+    expect(accounts[0].signupDate).toEqual(known);
+  });
+});
+

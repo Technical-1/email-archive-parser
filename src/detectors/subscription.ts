@@ -10,7 +10,7 @@ import type {
   SubscriptionCategory,
   SubscriptionFrequency,
 } from '../types';
-import { stripHtml, extractDomain, formatDomainAsName } from '../utils';
+import { stripHtml, extractDomain, formatDomainAsName, parseMoney } from '../utils';
 import { matchKnownDomain } from './domainMatch';
 
 /**
@@ -231,14 +231,15 @@ export class SubscriptionDetector {
         const key = result.serviceName.toLowerCase();
 
         if (!subscriptionMap.has(key)) {
+          const monthly =
+            result.frequency && result.amount && result.amount > 0
+              ? normalizeToMonthly(result.amount, result.frequency)
+              : undefined;
           subscriptionMap.set(key, {
             serviceName: result.serviceName,
-            monthlyAmount: normalizeToMonthly(
-              result.amount || 0,
-              result.frequency || 'monthly'
-            ),
+            monthlyAmount: monthly,
             currency: result.currency || 'USD',
-            frequency: result.frequency || 'monthly',
+            frequency: result.frequency,
             lastRenewalDate: email.date,
             emailIds: [email.id!],
             isActive: true,
@@ -247,12 +248,12 @@ export class SubscriptionDetector {
         } else {
           const existing = subscriptionMap.get(key)!;
           existing.emailIds.push(email.id!);
-          if (email.date > existing.lastRenewalDate) {
+          if (email.date && (!existing.lastRenewalDate || email.date > existing.lastRenewalDate)) {
             existing.lastRenewalDate = email.date;
             if (result.frequency) {
               existing.frequency = result.frequency;
             }
-            if (result.amount && result.amount > 0) {
+            if (result.amount && result.amount > 0 && existing.frequency) {
               existing.monthlyAmount = normalizeToMonthly(
                 result.amount,
                 existing.frequency
@@ -284,7 +285,7 @@ export class SubscriptionDetector {
 
     const currencyPatterns: { symbol: string; pattern: RegExp }[] = [
       { symbol: 'USD', pattern: /\$\s*([\d,]+\.\d{2})/g },
-      { symbol: 'EUR', pattern: /€\s*([\d,]+[.,]\d{2})/g },
+      { symbol: 'EUR', pattern: /€\s*([\d.,]+[.,]\d{2})/g },
       { symbol: 'GBP', pattern: /£\s*([\d,]+\.\d{2})/g },
       { symbol: 'JPY', pattern: /¥\s*([\d,]+)/g },
     ];
@@ -299,8 +300,8 @@ export class SubscriptionDetector {
         );
         if (!billingContext.test(window)) continue;
 
-        const amount = parseFloat(match[1].replace(/,/g, ''));
-        if (!isNaN(amount) && amount > 0) {
+        const amount = parseMoney(match[1], symbol);
+        if (amount > 0) {
           return { amount, currency: symbol };
         }
       }

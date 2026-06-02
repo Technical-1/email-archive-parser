@@ -398,7 +398,7 @@ describe('SubscriptionDetector', () => {
       expect(subscriptions).toEqual([]);
     });
 
-    it('falls back to monthly when detected frequency is undefined', () => {
+    it('omits frequency and monthlyAmount when detected frequency is undefined', () => {
       const detector = new SubscriptionDetector();
       const email = createEmail({
         id: 1,
@@ -412,8 +412,8 @@ describe('SubscriptionDetector', () => {
       const [sub] = detector.detectBatch([email]);
 
       expect(sub).toBeDefined();
-      expect(sub.frequency).toBe('monthly');
-      expect(sub.monthlyAmount).toBeCloseTo(9.99, 2);
+      expect(sub.frequency).toBeUndefined();
+      expect(sub.monthlyAmount).toBeUndefined();
     });
 
     it('should mark subscriptions as active', () => {
@@ -485,6 +485,20 @@ describe('SubscriptionDetector', () => {
     });
   });
 
+  describe('SubscriptionDetector EUR locale amount', () => {
+    it('parses €1.234,56 as 1234.56, not 1.23', () => {
+      const d = new SubscriptionDetector();
+      const email = createEmail({
+        subject: 'Your membership renewal',
+        sender: 'billing@unknownservice.example',
+        body: 'Your subscription is billed €1.234,56 per month',
+      });
+      const r = d.detect(email);
+      expect(r.amount).toBe(1234.56);
+      expect(r.currency).toBe('EUR');
+    });
+  });
+
   describe('getKnownServices', () => {
     it('should return list of known subscription services', () => {
       const detector = new SubscriptionDetector();
@@ -509,6 +523,22 @@ describe('SubscriptionDetector', () => {
       expect(categories.has('news')).toBe(true);
       expect(categories.has('fitness')).toBe(true);
     });
+  });
+});
+
+describe('SubscriptionDetector unknown frequency', () => {
+  it('does not assert a monthly amount when cadence is unknown', () => {
+    const d = new SubscriptionDetector();
+    // An amount is present but there is NO per-month/year/week or billing-verb cadence word.
+    const email = createEmail({
+      subject: 'Thanks for subscribing',
+      sender: 'hello@unknownservice.example',
+      body: 'Thank you for subscribing. Your fee is $99.00.',
+    });
+    const subs = d.detectBatch([{ ...email, id: 0 }]);
+    expect(subs.length).toBeGreaterThan(0);
+    expect(subs[0].frequency).toBeUndefined();
+    expect(subs[0].monthlyAmount).toBeUndefined();
   });
 });
 
