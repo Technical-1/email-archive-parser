@@ -333,14 +333,14 @@ export class MBOXParser {
    * Extract contacts from email senders
    */
   private extractContactsFromEmails(result: ParseResult): void {
-    const senderMap = new Map<string, { name: string; emailCount: number; lastEmailDate: Date }>();
+    const senderMap = new Map<string, { name: string; emailCount: number; lastEmailDate: Date | null }>();
 
     for (const email of result.emails) {
       if (email.sender && email.sender !== 'unknown@example.com') {
         const existing = senderMap.get(email.sender);
         if (existing) {
           existing.emailCount++;
-          if (email.date > existing.lastEmailDate) {
+          if (email.date && (!existing.lastEmailDate || email.date > existing.lastEmailDate)) {
             existing.lastEmailDate = email.date;
           }
         } else {
@@ -829,7 +829,7 @@ export class MBOXParser {
         sender: cleanEmailAddress(sender),
         senderName: senderName || undefined,
         recipients,
-        date: date || new Date(),
+        date,
         body: trimmedBody || (htmlBody ? this.stripHtml(htmlBody) : ''),
         htmlBody,
         attachments: [],

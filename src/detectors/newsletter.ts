@@ -234,8 +234,13 @@ export class NewsletterDetector {
     const newsletters: Newsletter[] = [];
 
     senderMap.forEach((data, sender) => {
+      // Compile-safe null guard (Hub 1016 part 1): treat an unknown date as 0
+      // (epoch) for ordering. Full null-aware sorting lands in the detector
+      // rework task.
       const sortedEntries = [...data.entries].sort(
-        (a, b) => new Date(b.email.date).getTime() - new Date(a.email.date).getTime()
+        (a, b) =>
+          (b.email.date ? b.email.date.getTime() : 0) -
+          (a.email.date ? a.email.date.getTime() : 0)
       );
       const latest = sortedEntries[0];
       const unsubscribeLinks = Array.from(data.unsubscribeLinks);
@@ -245,7 +250,7 @@ export class NewsletterDetector {
         senderEmail: sender,
         senderName: latest.email.senderName || this.extractNameFromEmail(sender),
         emailCount: data.entries.length,
-        lastEmailDate: new Date(latest.email.date),
+        lastEmailDate: latest.email.date,
         frequency,
         unsubscribeLink: unsubscribeLinks[0],
         isPromotional: latest.result.isPromotional,
@@ -320,7 +325,9 @@ export class NewsletterDetector {
     }
 
     // Calculate average days between emails
-    const dates = emails.map(e => new Date(e.date).getTime());
+    // Compile-safe null guard (Hub 1016 part 1): treat an unknown date as 0
+    // (epoch). Full null-aware frequency math lands in the detector rework task.
+    const dates = emails.map(e => (e.date ? e.date.getTime() : 0));
     let totalDays = 0;
     
     for (let i = 0; i < dates.length - 1; i++) {

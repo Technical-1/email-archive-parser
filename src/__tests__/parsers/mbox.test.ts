@@ -479,3 +479,19 @@ describe('MBOX RFC 2822 envelope dates', () => {
   });
 });
 
+
+describe('MBOX nullable dates', () => {
+  it('sets date to null when the Date header is missing', async () => {
+    const mbox = [
+      'From sender@example.com Mon Jan  1 00:00:00 2024',
+      'From: sender@example.com',
+      'Subject: No date header here',
+      '',
+      'Body text.',
+      '',
+    ].join('\n');
+    const result = await new MBOXParser().parse(Buffer.from(mbox, 'utf-8'));
+    expect(result.emails.length).toBe(1);
+    expect(result.emails[0].date).toBeNull();
+  });
+});

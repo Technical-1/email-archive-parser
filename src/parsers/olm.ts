@@ -93,7 +93,7 @@ export class OLMParser {
       );
 
       // Stage 2: Parse emails and track contacts from senders
-      const senderContactMap = new Map<string, { name: string; emailCount: number; lastEmailDate: Date }>();
+      const senderContactMap = new Map<string, { name: string; emailCount: number; lastEmailDate: Date | null }>();
       
       if (emailFiles.length > 0) {
         this.reportProgress(
@@ -116,7 +116,7 @@ export class OLMParser {
                 const existing = senderContactMap.get(email.sender);
                 if (existing) {
                   existing.emailCount++;
-                  if (email.date > existing.lastEmailDate) {
+                  if (email.date && (!existing.lastEmailDate || email.date > existing.lastEmailDate)) {
                     existing.lastEmailDate = email.date;
                   }
                 } else {
@@ -346,7 +346,7 @@ export class OLMParser {
       'sentTime',
       'date',
     ]);
-    const date = dateStr ? new Date(dateStr) : new Date();
+    const parsed = dateStr ? new Date(dateStr) : null;
 
     // Parse recipients
     const recipients: string[] = [];
@@ -388,7 +388,7 @@ export class OLMParser {
       sender: cleanEmailAddress(sender),
       senderName: senderName || undefined,
       recipients,
-      date: isNaN(date.getTime()) ? new Date() : date,
+      date: parsed && !isNaN(parsed.getTime()) ? parsed : null,
       body: body || preview || '',
       htmlBody: htmlBody || undefined,
       attachments: [],
@@ -427,7 +427,7 @@ export class OLMParser {
     );
     const sender = senderMatch ? senderMatch[1] : '';
 
-    const date = dateStr ? new Date(dateStr) : new Date();
+    const parsed = dateStr ? new Date(dateStr) : null;
 
     if (!subject && !body) {
       return null;
@@ -437,7 +437,7 @@ export class OLMParser {
       subject: subject || '(No Subject)',
       sender: cleanEmailAddress(sender),
       recipients: [],
-      date: isNaN(date.getTime()) ? new Date() : date,
+      date: parsed && !isNaN(parsed.getTime()) ? parsed : null,
       body,
       attachments: [],
       size: xmlContent.length,

@@ -312,7 +312,10 @@ export class PurchaseDetector {
           merchant: result.data.merchant || 'Unknown',
           amount: result.data.amount,
           currency: result.data.currency || 'USD',
-          purchaseDate: email.date,
+          // Compile-safe fallback (Hub 1016 part 1): Purchase.purchaseDate is
+          // non-nullable, so retain the prior now() default when the source
+          // email date is unknown. Revisited in the detector rework task.
+          purchaseDate: email.date || new Date(),
           orderNumber: result.data.orderNumber,
           items: [],
           category: this.getCategory(result.data.merchant || ''),
