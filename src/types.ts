@@ -212,12 +212,12 @@ export interface Subscription {
   id?: number;
   /** Service name */
   serviceName: string;
-  /** Monthly cost (normalized to monthly for comparison) */
-  monthlyAmount: number;
+  /** Monthly cost, normalized to monthly — only set when frequency is known */
+  monthlyAmount?: number;
   /** Currency code */
   currency: string;
-  /** Billing frequency */
-  frequency: SubscriptionFrequency;
+  /** Billing frequency — undefined when no cadence signal was found */
+  frequency?: SubscriptionFrequency;
   /** Last renewal/billing date */
   lastRenewalDate: Date;
   /** Next renewal date (if known) */

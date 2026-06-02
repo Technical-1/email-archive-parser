@@ -231,14 +231,15 @@ export class SubscriptionDetector {
         const key = result.serviceName.toLowerCase();
 
         if (!subscriptionMap.has(key)) {
+          const monthly =
+            result.frequency && result.amount && result.amount > 0
+              ? normalizeToMonthly(result.amount, result.frequency)
+              : undefined;
           subscriptionMap.set(key, {
             serviceName: result.serviceName,
-            monthlyAmount: normalizeToMonthly(
-              result.amount || 0,
-              result.frequency || 'monthly'
-            ),
+            monthlyAmount: monthly,
             currency: result.currency || 'USD',
-            frequency: result.frequency || 'monthly',
+            frequency: result.frequency,
             lastRenewalDate: email.date,
             emailIds: [email.id!],
             isActive: true,
@@ -247,12 +248,12 @@ export class SubscriptionDetector {
         } else {
           const existing = subscriptionMap.get(key)!;
           existing.emailIds.push(email.id!);
-          if (email.date > existing.lastRenewalDate) {
+          if (email.date && (!existing.lastRenewalDate || email.date > existing.lastRenewalDate)) {
             existing.lastRenewalDate = email.date;
             if (result.frequency) {
               existing.frequency = result.frequency;
             }
-            if (result.amount && result.amount > 0) {
+            if (result.amount && result.amount > 0 && existing.frequency) {
               existing.monthlyAmount = normalizeToMonthly(
                 result.amount,
                 existing.frequency
