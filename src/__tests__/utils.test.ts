@@ -89,6 +89,11 @@ describe('stripHtml', () => {
   it('should normalize whitespace', () => {
     expect(stripHtml('<p>Hello</p>   <p>World</p>')).toBe('Hello World');
   });
+
+  it('should not double-decode &amp;lt; into a real <', () => {
+    // &amp;lt; must decode to the literal text "&lt;", never to "<".
+    expect(stripHtml('a &amp;lt; b')).toBe('a &lt; b');
+  });
 });
 
 describe('extractDomain', () => {
@@ -293,6 +298,21 @@ describe('decodeQuotedPrintable', () => {
   it('should pass through = followed by a single non-hex-pair char at end', () => {
     expect(decodeQuotedPrintable('price=3')).toBe('price=3');
   });
+
+  it('should honor a latin1 / ISO-8859-1 charset', () => {
+    // 0xE9 is 'é' in ISO-8859-1 (a single byte, not the UTF-8 =C3=A9 pair).
+    expect(decodeQuotedPrintable('caf=E9', 'iso-8859-1')).toBe('café');
+    expect(decodeQuotedPrintable('caf=E9', 'latin1')).toBe('café');
+  });
+
+  it('should decode an emoji (astral code point) carried as UTF-8 bytes', () => {
+    // =F0=9F=98=80 is UTF-8 for 😀 (U+1F600).
+    expect(decodeQuotedPrintable('=F0=9F=98=80')).toBe('😀');
+  });
+
+  it('should preserve a literal emoji surrogate pair passed through unencoded', () => {
+    expect(decodeQuotedPrintable('hi 😀')).toBe('hi 😀');
+  });
 });
 
 describe('decodeHeaderValue', () => {
@@ -312,8 +332,10 @@ describe('decodeHeaderValue', () => {
   });
 
   it('should handle multiple encoded parts', () => {
+    // RFC 2047 §6.2: linear whitespace separating two adjacent encoded-words
+    // is removed, so the space between them is not part of the decoded value.
     const result = decodeHeaderValue('=?UTF-8?B?SGVsbG8=?= =?UTF-8?B?V29ybGQ=?=');
-    expect(result).toBe('Hello World');
+    expect(result).toBe('HelloWorld');
   });
 
   it('should decode a UTF-8 base64 encoded-word', () => {
@@ -330,6 +352,16 @@ describe('decodeHeaderValue', () => {
   it('should fall back to raw text for malformed base64', () => {
     // '@@@' is not valid base64; the try/catch returns the raw encoded payload
     expect(decodeHeaderValue('=?UTF-8?B?@@@?=')).toBe('@@@');
+  });
+
+  it('should honor an ISO-8859-1 quoted-printable encoded-word', () => {
+    // =E9 is a single ISO-8859-1 byte for 'é', not the UTF-8 pair.
+    expect(decodeHeaderValue('=?ISO-8859-1?Q?caf=E9?=')).toBe('café');
+  });
+
+  it('should collapse whitespace between adjacent encoded-words', () => {
+    // Linear whitespace between two encoded-words is removed (RFC 2047 §6.2).
+    expect(decodeHeaderValue('=?UTF-8?Q?caf?=   =?UTF-8?Q?=C3=A9?=')).toBe('café');
   });
 });
 

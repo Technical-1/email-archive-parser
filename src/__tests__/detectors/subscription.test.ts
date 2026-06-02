@@ -55,7 +55,7 @@ describe('SubscriptionDetector', () => {
       const email = createEmail({
         subject: 'Your monthly billing statement',
         sender: 'billing@service.com',
-        body: 'Billing period: Jan 1 - Jan 31. Monthly subscription: $9.99',
+        body: 'Billing period: Jan 1 - Jan 31. You are billed $9.99 per month.',
       });
 
       const result = detector.detect(email);
@@ -170,6 +170,85 @@ describe('SubscriptionDetector', () => {
 
       expect(result.amount).toBe(9.99);
       expect(result.currency).toBe('GBP');
+    });
+
+    it('should NOT take a stray amount with no billing keyword as the price', () => {
+      const detector = new SubscriptionDetector();
+      const email = createEmail({
+        subject: 'Your subscription renewal receipt',
+        sender: 'billing@service.com',
+        body:
+          'You won a $500.00 gift card in our raffle! Separately, your recurring charge of $9.99 has been processed.',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.isSubscription).toBe(true);
+      // The $500.00 gift card has no billing keyword nearby and must be ignored;
+      // only the billing-anchored $9.99 should be picked up.
+      expect(result.amount).toBe(9.99);
+    });
+
+    it('should ignore an amount entirely when no billing context surrounds it', () => {
+      const detector = new SubscriptionDetector();
+      const email = createEmail({
+        subject: 'Your subscription receipt',
+        sender: 'billing@netflix.com',
+        body:
+          'Subscription confirmed. As a thank you, here is a $25.00 voucher for the gift shop.',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.isSubscription).toBe(true);
+      // No billing keyword near the $25.00 voucher -> amount stays undefined.
+      expect(result.amount).toBeUndefined();
+    });
+
+    it('should extract JPY amounts', () => {
+      const detector = new SubscriptionDetector();
+      const email = createEmail({
+        subject: 'Subscription renewed',
+        sender: 'billing@service.jp',
+        body: 'Amount charged: ¥1,200 per month for your subscription.',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.amount).toBe(1200);
+      expect(result.currency).toBe('JPY');
+    });
+
+    it('should detect a newly-added known service (Peacock)', () => {
+      const detector = new SubscriptionDetector();
+      const email = createEmail({
+        subject: 'Your subscription receipt',
+        sender: 'billing@peacocktv.com',
+        body: 'Monthly subscription charged: $5.99',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.isSubscription).toBe(true);
+      expect(result.serviceName).toBe('Peacock');
+      expect(result.category).toBe('streaming');
+    });
+
+    it('should leave frequency undefined when no billing signal anchors it', () => {
+      const detector = new SubscriptionDetector();
+      const email = createEmail({
+        subject: 'Your subscription receipt',
+        sender: 'billing@service.com',
+        body:
+          'We send a weekly digest of tips. Your recurring charge of $9.99 has been processed.',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.isSubscription).toBe(true);
+      // "weekly digest" is not a billing anchor, so frequency must not be 'weekly';
+      // there is no anchored monthly/yearly phrase either -> undefined.
+      expect(result.frequency).toBeUndefined();
     });
 
     it('should return isSubscription false for regular emails', () => {
@@ -289,14 +368,14 @@ describe('SubscriptionDetector', () => {
           id: 1,
           subject: 'Subscription renewed',
           sender: 'billing@netflix.com',
-          body: 'Monthly: $15.99',
+          body: 'You were charged $15.99 per month.',
           date: new Date('2024-01-15'),
         }),
         createEmail({
           id: 2,
           subject: 'Subscription renewed',
           sender: 'billing@netflix.com',
-          body: 'Monthly: $17.99',
+          body: 'You were charged $17.99 per month.',
           date: new Date('2024-03-15'),
         }),
       ];
@@ -317,6 +396,24 @@ describe('SubscriptionDetector', () => {
       const subscriptions = detector.detectBatch(emails);
 
       expect(subscriptions).toEqual([]);
+    });
+
+    it('falls back to monthly when detected frequency is undefined', () => {
+      const detector = new SubscriptionDetector();
+      const email = createEmail({
+        id: 1,
+        subject: 'Your subscription receipt',
+        sender: 'billing@service.com',
+        // No anchored per-X / billing-verb frequency phrase -> detectFrequency returns undefined.
+        body: 'Your recurring charge of $9.99 has been processed.',
+        date: new Date('2024-01-15'),
+      });
+
+      const [sub] = detector.detectBatch([email]);
+
+      expect(sub).toBeDefined();
+      expect(sub.frequency).toBe('monthly');
+      expect(sub.monthlyAmount).toBeCloseTo(9.99, 2);
     });
 
     it('should mark subscriptions as active', () => {

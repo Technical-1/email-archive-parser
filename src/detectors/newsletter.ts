@@ -5,6 +5,7 @@
 
 import type { Email, Newsletter, NewsletterDetectionResult } from '../types';
 import { stripHtml, extractDomain } from '../utils';
+import { matchKnownDomain } from './domainMatch';
 
 /**
  * Detector for newsletters and promotional emails
@@ -47,10 +48,16 @@ export class NewsletterDetector {
     /\bdon'?t\s+miss\s+(?:out|this)\b/i,
     /\blast\s+chance\b/i,
     /\bpromo(?:tion)?\s*code\b/i,
+    /\bcoupon\s*code\b/i,
     /\bdiscount\s*code\b/i,
     /\buse\s+code\b/i,
+    /\bbogo\b/i,
+    /\bbuy\s+\d+\s+get\s+\d+/i,
+    /\bclearance\b/i,
     /\bblack\s+friday\b/i,
     /\bcyber\s+monday\b/i,
+    /\bprime\s+day\b/i,
+    /\bholiday\s+(?:sale|deals|savings)\b/i,
   ];
 
   private readonly marketingBodyPatterns = [
@@ -62,13 +69,24 @@ export class NewsletterDetector {
     /to\s+stop\s+receiving\s+(?:these|our)\s+emails/i,
     /view\s+(?:in|as)\s+(?:a\s+)?(?:web\s+)?browser/i,
     /view\s+(?:this\s+)?(?:email\s+)?online/i,
+    /having\s+trouble\s+(?:viewing|reading)/i,
     /forward\s+to\s+a\s+friend/i,
+    /share\s+(?:with|this)/i,
     /copyright\s+©?\s*\d{4}/i,
     /all\s+rights\s+reserved/i,
     /privacy\s+policy/i,
+    /terms\s+(?:of\s+(?:service|use)|and\s+conditions)/i,
   ];
 
-  private readonly knownPromotionalPrefixes = [
+  // Known promotional/newsletter sender domains. Entries ending in '.' are
+  // subdomain markers (e.g. 'newsletter.') matched only at the START of the
+  // domain so they sit on a label boundary; the rest are full domains matched
+  // boundary-safely via matchKnownDomain. This avoids the old
+  // `domain.includes('mail.')` bug that flagged gmail.com/hotmail.com as
+  // promotional because they contain the substring "mail.".
+  private readonly knownPromotionalDomains = [
+    'email.amazonses.com',
+    'em.ebay.com',
     'promo.',
     'marketing.',
     'newsletter.',
@@ -129,12 +147,9 @@ export class NewsletterDetector {
 
     // Check sender domain
     const domain = extractDomain(sender);
-    for (const prefix of this.knownPromotionalPrefixes) {
-      if (domain.includes(prefix)) {
-        newsletterScore += 20;
-        promotionalScore += 20;
-        break;
-      }
+    if (this.isPromotionalSenderDomain(domain)) {
+      newsletterScore += 20;
+      promotionalScore += 20;
     }
 
     // Extract unsubscribe link
@@ -159,6 +174,32 @@ export class NewsletterDetector {
       confidence: Math.min(confidence, 100),
       unsubscribeLink,
     };
+  }
+
+  /**
+   * Decide whether a sender domain looks like a marketing/newsletter sender.
+   * Entries in knownPromotionalDomains ending in '.' are subdomain markers
+   * (e.g. 'newsletter.') matched only at the START of the domain so they sit
+   * on a label boundary; the rest are full domains matched boundary-safely via
+   * matchKnownDomain. This avoids the old `domain.includes('mail.')` bug that
+   * flagged gmail.com/hotmail.com as promotional because they contain the
+   * substring "mail.".
+   * @param domain - Sender domain (e.g. from extractDomain)
+   * @returns true if the domain is a known promotional/newsletter sender
+   */
+  private isPromotionalSenderDomain(domain: string): boolean {
+    const d = domain.trim().toLowerCase();
+    if (!d) return false;
+
+    const fullDomains: Record<string, true> = {};
+    for (const entry of this.knownPromotionalDomains) {
+      if (entry.endsWith('.')) {
+        if (d.startsWith(entry)) return true;
+      } else {
+        fullDomains[entry] = true;
+      }
+    }
+    return matchKnownDomain(d, fullDomains) !== null;
   }
 
   /**

@@ -4,35 +4,6 @@
  */
 
 /**
- * Decode a UTF-8 byte array to a string, using TextDecoder where available
- * and falling back to Node's Buffer. Centralizes correct multi-byte handling.
- */
-function utf8BytesToString(bytes: Uint8Array): string {
-  if (typeof TextDecoder !== 'undefined') {
-    return new TextDecoder('utf-8').decode(bytes);
-  }
-  // Node.js fallback
-  return Buffer.from(bytes).toString('utf-8');
-}
-
-/**
- * Decode a base64 string whose decoded bytes are UTF-8 text.
- * `atob` yields a Latin-1 string (one char per byte), so we re-read those
- * char codes as bytes and UTF-8 decode them. In Node, Buffer handles it directly.
- */
-function base64ToUtf8(str: string): string {
-  if (typeof atob !== 'undefined') {
-    const binary = atob(str);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i) & 0xff;
-    }
-    return utf8BytesToString(bytes);
-  }
-  return Buffer.from(str, 'base64').toString('utf-8');
-}
-
-/**
  * Clean and normalize an email address
  * @param email - Raw email string
  * @returns Cleaned, lowercase email address, or '' when none is found
@@ -83,11 +54,11 @@ export function stripHtml(html: string): string {
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')  // must be last to avoid double-decoding &amp;lt; -> <
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -192,14 +163,50 @@ export function parseDate(dateStr: string): Date | null {
 }
 
 /**
- * Decode quoted-printable encoding into UTF-8 text.
+ * Map common MIME charset aliases to labels TextDecoder accepts.
+ * @param charset - Declared charset (e.g. from a header or encoded-word)
+ * @returns A normalized label suitable for `new TextDecoder(...)`
+ */
+function normalizeCharset(charset: string): string {
+  const c = charset.trim().toLowerCase();
+  if (c === 'utf8') return 'utf-8';
+  if (c === 'latin1' || c === 'iso8859-1') return 'iso-8859-1';
+  return c || 'utf-8';
+}
+
+/**
+ * Decode a byte array using the declared charset, falling back to UTF-8.
+ * `TextDecoder` is available in Node, so we can honor non-UTF-8 charsets;
+ * if the charset label is unknown we degrade gracefully to UTF-8 (which is
+ * the historical CLI behavior).
+ */
+function decodeBytes(bytes: Uint8Array, charset: string): string {
+  if (typeof TextDecoder !== 'undefined') {
+    try {
+      return new TextDecoder(normalizeCharset(charset)).decode(bytes);
+    } catch {
+      return new TextDecoder('utf-8').decode(bytes);
+    }
+  }
+  // Node.js fallback (older runtimes without a global TextDecoder).
+  try {
+    return Buffer.from(bytes).toString(normalizeCharset(charset) as BufferEncoding);
+  } catch {
+    return Buffer.from(bytes).toString('utf-8');
+  }
+}
+
+/**
+ * Decode quoted-printable encoding into text using the declared charset.
  * Soft line breaks are removed, then every `=XX` sequence and literal
- * character is accumulated as raw bytes and decoded together as UTF-8,
- * so multi-byte sequences (e.g. `=C3=A9` -> 'é') decode correctly.
+ * character is accumulated as raw bytes and decoded together, so multi-byte
+ * sequences (e.g. `=C3=A9` -> 'é') and astral code points (emoji) survive.
+ * Defaults to UTF-8 when no charset is given.
  * @param str - Quoted-printable encoded string
+ * @param charset - Declared charset (default 'utf-8')
  * @returns Decoded string
  */
-export function decodeQuotedPrintable(str: string): string {
+export function decodeQuotedPrintable(str: string, charset = 'utf-8'): string {
   // Remove soft line breaks first ("=\n" or "=\r\n")
   const cleaned = str.replace(/=\r?\n/g, '');
 
@@ -214,32 +221,67 @@ export function decodeQuotedPrintable(str: string): string {
         continue;
       }
     }
-    // Literal character — quoted-printable literals are ASCII, but mask to a
-    // byte defensively so any stray code point stays in range.
-    bytes.push(char.charCodeAt(0) & 0xff);
+    // Literal character. Surrogate pairs (astral code points such as emoji)
+    // must be encoded together; non-ASCII literals are UTF-8 encoded so they
+    // are not corrupted by a naive `& 0xff` byte mask.
+    const code = char.charCodeAt(0);
+    if (code >= 0xd800 && code <= 0xdbff && i + 1 < cleaned.length) {
+      const next = cleaned.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        // High surrogate followed by low surrogate: encode the pair together.
+        const enc = new TextEncoder().encode(cleaned[i] + cleaned[i + 1]);
+        for (const b of enc) bytes.push(b);
+        i += 1; // skip the low surrogate on the next iteration
+        continue;
+      }
+    }
+    if (code < 0x80) {
+      bytes.push(code);
+    } else {
+      const enc = new TextEncoder().encode(char);
+      for (const b of enc) bytes.push(b);
+    }
   }
 
-  return utf8BytesToString(new Uint8Array(bytes));
+  return decodeBytes(new Uint8Array(bytes), charset);
 }
 
 /**
  * Decode an RFC 2047 encoded header value.
  * Handles the `=?charset?encoding?text?=` format for both `B` (base64)
- * and `Q` (quoted-printable) encodings, decoding the payload as UTF-8.
+ * and `Q` (quoted-printable) encodings, honoring the charset captured from
+ * each encoded-word. Falls back to the raw payload on decode errors.
  * @param str - Encoded header value
  * @returns Decoded string
  */
 export function decodeHeaderValue(str: string): string {
-  return str.replace(
-    /=\?([^?]+)\?([BQ])\?([^?]+)\?=/gi,
-    (_, _charset, encoding, text) => {
+  // RFC 2047 §6.2 — linear whitespace between two adjacent encoded-words must
+  // be removed before decoding. Whitespace between an encoded-word and
+  // ordinary text is preserved.
+  const collapsed = str.replace(/\?=\s+=\?/g, '?==?');
+  return collapsed.replace(
+    // Allow empty encoded payloads ([^?]* not [^?]+).
+    /=\?([^?]+)\?([BQ])\?([^?]*)\?=/gi,
+    (_, charset: string, encoding: string, text: string) => {
       try {
         if (encoding.toUpperCase() === 'B') {
-          // Base64-encoded UTF-8
-          return base64ToUtf8(text);
+          // Base64-encoded bytes -> decode with the declared charset.
+          if (typeof atob !== 'undefined') {
+            const binary = atob(text);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+              bytes[i] = binary.charCodeAt(i) & 0xff;
+            }
+            return decodeBytes(bytes, charset);
+          }
+          // Node.js fallback without a global atob.
+          return decodeBytes(
+            new Uint8Array(Buffer.from(text, 'base64')),
+            charset
+          );
         }
-        // Quoted-printable: underscores represent spaces in encoded words
-        return decodeQuotedPrintable(text.replace(/_/g, ' '));
+        // Quoted-printable: underscores represent spaces in encoded words.
+        return decodeQuotedPrintable(text.replace(/_/g, ' '), charset);
       } catch {
         return text;
       }

@@ -156,6 +156,76 @@ describe('NewsletterDetector', () => {
       expect(result.isNewsletter || result.isPromotional).toBe(true);
     });
 
+    it('should NOT classify gmail.com senders as promotional (regression for mail. substring bug)', () => {
+      const detector = new NewsletterDetector();
+      const email = createEmail({
+        subject: 'Lunch tomorrow?',
+        sender: 'jacob@gmail.com',
+        body: 'Want to grab lunch tomorrow at noon?',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.isNewsletter).toBe(false);
+      expect(result.isPromotional).toBe(false);
+    });
+
+    it('should NOT classify hotmail.com senders as promotional (regression for mail. substring bug)', () => {
+      const detector = new NewsletterDetector();
+      const email = createEmail({
+        subject: 'Re: family photos',
+        sender: 'aunt.sue@hotmail.com',
+        body: 'Thanks for sending those over!',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.isNewsletter).toBe(false);
+      expect(result.isPromotional).toBe(false);
+    });
+
+    it('should detect Prime Day promotional subjects (new pattern)', () => {
+      const detector = new NewsletterDetector();
+      const email = createEmail({
+        subject: 'Prime Day starts now - shop the best deals',
+        sender: 'deals@retailer.com',
+        body: 'Tons of deals await! View in browser. Unsubscribe. Privacy Policy. All rights reserved.',
+        htmlBody: '<a href="https://retailer.com/unsubscribe">Unsubscribe</a>',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.isPromotional).toBe(true);
+    });
+
+    it('should detect coupon code promotional subjects (new pattern)', () => {
+      const detector = new NewsletterDetector();
+      const email = createEmail({
+        subject: 'Your exclusive coupon code is inside',
+        sender: 'sender@store.com',
+        body: 'Redeem now! View in browser. Unsubscribe. Privacy Policy. All rights reserved.',
+        htmlBody: '<a href="https://store.com/unsubscribe">Unsubscribe</a>',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.isPromotional).toBe(true);
+    });
+
+    it('should classify full promotional domains (email.amazonses.com) boundary-safely', () => {
+      const detector = new NewsletterDetector();
+      const email = createEmail({
+        subject: 'Your weekly digest',
+        sender: 'no-reply@email.amazonses.com',
+        body: 'Content. View in browser. Unsubscribe. Privacy Policy. All rights reserved.',
+        htmlBody: '<a href="https://example.com/unsubscribe">Unsubscribe</a>',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.isNewsletter || result.isPromotional).toBe(true);
+    });
+
     it('should return false for regular emails', () => {
       const detector = new NewsletterDetector();
       const email = createEmail({

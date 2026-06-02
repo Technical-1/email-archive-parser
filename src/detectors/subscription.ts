@@ -64,40 +64,57 @@ export class SubscriptionDetector {
     'disneyplus.com': { name: 'Disney+', category: 'streaming' },
     'hbomax.com': { name: 'HBO Max', category: 'streaming' },
     'max.com': { name: 'Max', category: 'streaming' },
+    'appletv.apple.com': { name: 'Apple TV+', category: 'streaming' },
     'primevideo.com': { name: 'Prime Video', category: 'streaming' },
-    'youtube.com': { name: 'YouTube Premium', category: 'streaming' },
+    'peacocktv.com': { name: 'Peacock', category: 'streaming' },
+    'paramountplus.com': { name: 'Paramount+', category: 'streaming' },
     'crunchyroll.com': { name: 'Crunchyroll', category: 'streaming' },
     'audible.com': { name: 'Audible', category: 'streaming' },
+    'youtube.com': { name: 'YouTube Premium', category: 'streaming' },
+    'pandora.com': { name: 'Pandora', category: 'streaming' },
+    'deezer.com': { name: 'Deezer', category: 'streaming' },
+    'tidal.com': { name: 'Tidal', category: 'streaming' },
     'twitch.tv': { name: 'Twitch', category: 'streaming' },
     // Software
     'adobe.com': { name: 'Adobe Creative Cloud', category: 'software' },
     'microsoft.com': { name: 'Microsoft 365', category: 'software' },
+    'office365.com': { name: 'Microsoft 365', category: 'software' },
     'dropbox.com': { name: 'Dropbox', category: 'software' },
     'notion.so': { name: 'Notion', category: 'software' },
     '1password.com': { name: '1Password', category: 'software' },
+    'lastpass.com': { name: 'LastPass', category: 'software' },
+    'bitwarden.com': { name: 'Bitwarden', category: 'software' },
     'grammarly.com': { name: 'Grammarly', category: 'software' },
     'canva.com': { name: 'Canva Pro', category: 'software' },
     'figma.com': { name: 'Figma', category: 'software' },
     'slack.com': { name: 'Slack', category: 'software' },
     'zoom.us': { name: 'Zoom', category: 'software' },
     'github.com': { name: 'GitHub', category: 'software' },
+    'jetbrains.com': { name: 'JetBrains', category: 'software' },
+    // VPN
     'nordvpn.com': { name: 'NordVPN', category: 'software' },
     'expressvpn.com': { name: 'ExpressVPN', category: 'software' },
+    'surfshark.com': { name: 'Surfshark', category: 'software' },
     // News
     'nytimes.com': { name: 'New York Times', category: 'news' },
     'washingtonpost.com': { name: 'Washington Post', category: 'news' },
     'wsj.com': { name: 'Wall Street Journal', category: 'news' },
+    'economist.com': { name: 'The Economist', category: 'news' },
     'medium.com': { name: 'Medium', category: 'news' },
     'substack.com': { name: 'Substack', category: 'news' },
     // Fitness
     'peloton.com': { name: 'Peloton', category: 'fitness' },
     'classpass.com': { name: 'ClassPass', category: 'fitness' },
+    'myfitnesspal.com': { name: 'MyFitnessPal', category: 'fitness' },
     'strava.com': { name: 'Strava', category: 'fitness' },
+    'fitbit.com': { name: 'Fitbit Premium', category: 'fitness' },
     'calm.com': { name: 'Calm', category: 'fitness' },
     'headspace.com': { name: 'Headspace', category: 'fitness' },
     // Other
     'amazon.com': { name: 'Amazon Prime', category: 'other' },
+    'costco.com': { name: 'Costco Membership', category: 'other' },
     'linkedin.com': { name: 'LinkedIn Premium', category: 'other' },
+    'evernote.com': { name: 'Evernote', category: 'other' },
   };
 
   private readonly subjectPatterns = [
@@ -105,10 +122,12 @@ export class SubscriptionDetector {
     /your\s+(?:monthly|yearly|annual)\s+(?:subscription|membership|plan)/i,
     /(?:subscription|membership)\s+(?:renewal|billing|payment)/i,
     /(?:thank you|thanks)\s+for\s+(?:subscribing|your subscription)/i,
+    /your\s+\w+\s+(?:subscription|membership)\s+(?:is active|has been renewed)/i,
     /billing\s+(?:receipt|statement|confirmation)/i,
     /payment\s+(?:confirmation|receipt)\s+for\s+(?:subscription|membership)/i,
     /auto.?renew(?:al|ed)?/i,
     /recurring\s+(?:payment|charge|billing)/i,
+    /your\s+next\s+(?:bill|payment)\s+(?:date|is)/i,
   ];
 
   private readonly bodyPatterns = [
@@ -253,19 +272,36 @@ export class SubscriptionDetector {
     return matchKnownDomain(domain, this.knownSubscriptions);
   }
 
+  /**
+   * Extract subscription amount from text.
+   * Only trusts a currency value that sits within a billing-context window,
+   * to avoid mistaking a stray dollar amount for the subscription price.
+   */
   private extractAmount(text: string): { amount?: number; currency: string } {
-    const currencyPatterns = [
-      { symbol: 'USD', pattern: /\$\s*([\d,]+\.\d{2})/i },
-      { symbol: 'EUR', pattern: /€\s*([\d,]+[.,]\d{2})/i },
-      { symbol: 'GBP', pattern: /£\s*([\d,]+\.\d{2})/i },
+    // Billing-context keywords that must appear NEAR the price to trust it
+    const billingContext =
+      /(?:charged?|charge|bill(?:ed|ing)?|renew(?:s|al|ed)?|recurring|payment|per\s+(?:month|year|week)|\/(?:mo|month|yr|year|wk|week))/i;
+
+    const currencyPatterns: { symbol: string; pattern: RegExp }[] = [
+      { symbol: 'USD', pattern: /\$\s*([\d,]+\.\d{2})/g },
+      { symbol: 'EUR', pattern: /€\s*([\d,]+[.,]\d{2})/g },
+      { symbol: 'GBP', pattern: /£\s*([\d,]+\.\d{2})/g },
+      { symbol: 'JPY', pattern: /¥\s*([\d,]+)/g },
     ];
 
-    for (const currencyInfo of currencyPatterns) {
-      const match = text.match(currencyInfo.pattern);
-      if (match) {
+    for (const { symbol, pattern } of currencyPatterns) {
+      for (const match of text.matchAll(pattern)) {
+        const idx = match.index ?? 0;
+        // Window of +/- 40 chars around the matched price
+        const window = text.slice(
+          Math.max(0, idx - 40),
+          idx + match[0].length + 40
+        );
+        if (!billingContext.test(window)) continue;
+
         const amount = parseFloat(match[1].replace(/,/g, ''));
         if (!isNaN(amount) && amount > 0) {
-          return { amount, currency: currencyInfo.symbol };
+          return { amount, currency: symbol };
         }
       }
     }
@@ -273,17 +309,24 @@ export class SubscriptionDetector {
     return { currency: 'USD' };
   }
 
+  /**
+   * Detect billing frequency from text.
+   * Returns a frequency only when a billing/charge verb or per-X phrase anchors
+   * it, and returns undefined when there is no billing signal (unknown state).
+   */
   private detectFrequency(text: string): SubscriptionFrequency | undefined {
-    if (/(?:yearly|annual|annually|per year|\/year)/i.test(text)) {
-      return 'yearly';
-    }
-    if (/(?:weekly|per week|\/week)/i.test(text)) {
-      return 'weekly';
-    }
-    if (/(?:monthly|per month|\/month|each month)/i.test(text)) {
-      return 'monthly';
-    }
-    return 'monthly';
+    // Frequency is only trusted when tied to a billing/charge verb or a per-X phrase.
+    const yearly =
+      /(?:bill(?:ed)?|charged?|renew(?:s|al|ed)?|recurring)[^.]*?(?:yearly|annual(?:ly)?|per\s+year|\/(?:yr|year))|(?:per\s+year|\/(?:yr|year))/i;
+    const weekly =
+      /(?:bill(?:ed)?|charged?|renew(?:s|al|ed)?|recurring)[^.]*?(?:weekly|per\s+week|\/(?:wk|week))|(?:per\s+week|\/(?:wk|week))/i;
+    const monthly =
+      /(?:bill(?:ed)?|charged?|renew(?:s|al|ed)?|recurring)[^.]*?(?:monthly|per\s+month|\/(?:mo|month)|each\s+month)|(?:per\s+month|\/(?:mo|month)|each\s+month)/i;
+
+    if (yearly.test(text)) return 'yearly';
+    if (weekly.test(text)) return 'weekly';
+    if (monthly.test(text)) return 'monthly';
+    return undefined; // no billing signal -> unknown
   }
 
   private extractServiceName(subject: string, body: string): string | undefined {

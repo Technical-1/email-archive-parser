@@ -177,6 +177,65 @@ describe('PurchaseDetector', () => {
       expect(result.data?.amount).toBe(1234.56);
     });
 
+    it('should parse CHF amounts with apostrophe thousands separator', () => {
+      const detector = new PurchaseDetector();
+      const email = createEmail({
+        subject: 'Your order confirmation',
+        sender: 'orders@store.ch',
+        body: "Thank you for your order. Order total: CHF 1'234.56. Your order has been confirmed.",
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.type).toBe('purchase');
+      expect(result.data?.amount).toBe(1234.56);
+      expect(result.data?.currency).toBe('CHF');
+    });
+
+    it('should parse EUR comma-decimal amounts with dot thousands separator', () => {
+      const detector = new PurchaseDetector();
+      const email = createEmail({
+        subject: 'Order confirmation',
+        sender: 'orders@store.de',
+        body: 'Order total: €1.234,56',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.type).toBe('purchase');
+      expect(result.data?.amount).toBe(1234.56);
+      expect(result.data?.currency).toBe('EUR');
+    });
+
+    it('should detect a newly-added known merchant (Starbucks)', () => {
+      const detector = new PurchaseDetector();
+      const email = createEmail({
+        subject: 'Your order confirmation',
+        sender: 'receipts@starbucks.com',
+        body: 'Thank you for your purchase. Order total: $5.75',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.type).toBe('purchase');
+      expect(result.data?.merchant).toBe('Starbucks');
+      expect(detector.getCategory('Starbucks')).toBe('food');
+    });
+
+    it('should extract tracking numbers as order numbers', () => {
+      const detector = new PurchaseDetector();
+      const email = createEmail({
+        subject: 'Shipping confirmation',
+        sender: 'shipping@amazon.com',
+        body: 'Your order has shipped. Tracking #: 1Z999AA10123456784\nOrder total: $42.00',
+      });
+
+      const result = detector.detect(email);
+
+      expect(result.type).toBe('purchase');
+      expect(result.data?.orderNumber).toBe('1Z999AA10123456784');
+    });
+
     it('should detect known merchants by domain', () => {
       const detector = new PurchaseDetector();
       const knownMerchants = [

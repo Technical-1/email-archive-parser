@@ -350,7 +350,7 @@ export class AccountDetector {
 
     let mainPart = parts.length > 2 ? parts[parts.length - 2] : parts[0];
 
-    const skipWords = ['mail', 'email', 'noreply', 'no-reply', 'notifications', 'info', 'support'];
+    const skipWords = ['mail', 'email', 'noreply', 'no-reply', 'notifications', 'info', 'support', 'news', 'newsletter'];
     if (skipWords.includes(mainPart.toLowerCase())) {
       mainPart = parts.length > 2 ? parts[parts.length - 2] : parts[0];
     }
