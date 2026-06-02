@@ -380,3 +380,13 @@ describe('PurchaseDetector', () => {
   });
 });
 
+describe('PurchaseDetector domain matching parity', () => {
+  it('matches exact and true-subdomain only (no bare substring)', () => {
+    const d = new PurchaseDetector() as any;
+    expect(d.findKnownMerchant('amazon.com')).toBe('Amazon');
+    expect(d.findKnownMerchant('mail.amazon.com')).toBe('Amazon');
+    // amazonaws.com must NOT resolve to Amazon via substring.
+    expect(d.findKnownMerchant('amazonaws.com')).toBeNull();
+  });
+});
+

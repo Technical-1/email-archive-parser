@@ -5,6 +5,7 @@
 
 import type { Email, Purchase, PurchaseDetectionResult, PurchaseCategory } from '../types';
 import { stripHtml, extractDomain, parseMoney } from '../utils';
+import { matchKnownDomain } from './domainMatch';
 
 /**
  * Detector for purchase/order confirmation emails
@@ -431,17 +432,7 @@ export class PurchaseDetector {
   }
 
   private findKnownMerchant(domain: string): string | null {
-    if (this.knownMerchants[domain]) {
-      return this.knownMerchants[domain];
-    }
-
-    for (const [merchantDomain, name] of Object.entries(this.knownMerchants)) {
-      if (domain === merchantDomain || domain.endsWith('.' + merchantDomain)) {
-        return name;
-      }
-    }
-
-    return null;
+    return matchKnownDomain(domain, this.knownMerchants);
   }
 
   private formatDomainAsMerchant(domain: string): string {
