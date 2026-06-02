@@ -412,5 +412,11 @@ describe('parseMoney', () => {
   it('returns 0 for garbage', () => {
     expect(parseMoney('abc', 'USD')).toBe(0);
   });
+  it('treats a lone dot with a 2-digit tail as decimal even for EUR (14.99)', () => {
+    expect(parseMoney('14.99', 'EUR')).toBe(14.99);
+  });
+  it('treats a lone dot with a 3-digit tail as EUR grouping (1.234)', () => {
+    expect(parseMoney('1.234', 'EUR')).toBe(1234);
+  });
 });
 

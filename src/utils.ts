@@ -374,9 +374,10 @@ export function parseMoney(amountStr: string, currency: string): number {
   } else if (lastDot !== -1) {
     const tail = cleaned.slice(lastDot + 1);
     const oneDot = cleaned.indexOf('.') === lastDot;
-    if (commaDecimalLocale) {
-      cleaned = cleaned.replace(/\./g, '');
-    } else if (!(tail.length >= 1 && tail.length <= 2 && oneDot)) {
+    // A lone dot with a 1-2 digit tail is a decimal point in EVERY locale
+    // (1-2 digits is never valid 3-digit thousands grouping). Otherwise the
+    // dot(s) are grouping separators (e.g. EUR "1.234" -> 1234, "1.234.567").
+    if (!(tail.length >= 1 && tail.length <= 2 && oneDot)) {
       cleaned = cleaned.replace(/\./g, '');
     }
   }

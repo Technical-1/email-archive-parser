@@ -10,7 +10,7 @@ import type {
   SubscriptionCategory,
   SubscriptionFrequency,
 } from '../types';
-import { stripHtml, extractDomain, formatDomainAsName } from '../utils';
+import { stripHtml, extractDomain, formatDomainAsName, parseMoney } from '../utils';
 import { matchKnownDomain } from './domainMatch';
 
 /**
@@ -284,7 +284,7 @@ export class SubscriptionDetector {
 
     const currencyPatterns: { symbol: string; pattern: RegExp }[] = [
       { symbol: 'USD', pattern: /\$\s*([\d,]+\.\d{2})/g },
-      { symbol: 'EUR', pattern: /€\s*([\d,]+[.,]\d{2})/g },
+      { symbol: 'EUR', pattern: /€\s*([\d.,]+[.,]\d{2})/g },
       { symbol: 'GBP', pattern: /£\s*([\d,]+\.\d{2})/g },
       { symbol: 'JPY', pattern: /¥\s*([\d,]+)/g },
     ];
@@ -299,8 +299,8 @@ export class SubscriptionDetector {
         );
         if (!billingContext.test(window)) continue;
 
-        const amount = parseFloat(match[1].replace(/,/g, ''));
-        if (!isNaN(amount) && amount > 0) {
+        const amount = parseMoney(match[1], symbol);
+        if (amount > 0) {
           return { amount, currency: symbol };
         }
       }

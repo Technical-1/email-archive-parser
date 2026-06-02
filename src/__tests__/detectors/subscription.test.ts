@@ -485,6 +485,20 @@ describe('SubscriptionDetector', () => {
     });
   });
 
+  describe('SubscriptionDetector EUR locale amount', () => {
+    it('parses €1.234,56 as 1234.56, not 1.23', () => {
+      const d = new SubscriptionDetector();
+      const email = createEmail({
+        subject: 'Your membership renewal',
+        sender: 'billing@unknownservice.example',
+        body: 'Your subscription is billed €1.234,56 per month',
+      });
+      const r = d.detect(email);
+      expect(r.amount).toBe(1234.56);
+      expect(r.currency).toBe('EUR');
+    });
+  });
+
   describe('getKnownServices', () => {
     it('should return list of known subscription services', () => {
       const detector = new SubscriptionDetector();
