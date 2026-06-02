@@ -16,6 +16,12 @@ import {
  */
 export type EmailBatchCallback = (emails: Omit<Email, 'id'>[], batchNumber: number) => Promise<void>;
 
+/** UTF-8 byte length of a string, cross-platform (Buffer in Node, TextEncoder in browser). */
+function byteLength(str: string): number {
+  if (typeof Buffer !== 'undefined') return Buffer.byteLength(str, 'utf-8');
+  return new TextEncoder().encode(str).length;
+}
+
 /**
  * Extended options for MBOX parsing
  */
@@ -842,7 +848,7 @@ export class MBOXParser {
         body: trimmedBody || (htmlBody ? this.stripHtml(htmlBody) : ''),
         htmlBody,
         attachments: [],
-        size: Math.min(lines.join('\n').length, 100000), // Cap size calculation
+        size: byteLength(lines.join('\n')),
         isRead,
         isStarred,
         folderId,

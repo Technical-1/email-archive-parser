@@ -516,3 +516,23 @@ describe('MBOX contact extraction on large-buffer path', () => {
     expect(result.stats.contactCount).toBe(result.contacts.length);
   });
 });
+
+describe('MBOX Email.size in bytes', () => {
+  it('counts UTF-8 bytes, not characters, and is uncapped', async () => {
+    const body = '€'.repeat(50); // each € is 3 UTF-8 bytes -> 150 bytes of body alone
+    const mbox = [
+      'From a@x.com Mon Jan  1 00:00:00 2024',
+      'From: a@example.com',
+      'Subject: Bytes',
+      'Date: Mon, 01 Jan 2024 00:00:00 +0000',
+      '',
+      body,
+      '',
+    ].join('\n');
+    const result = await new MBOXParser().parse(Buffer.from(mbox, 'utf-8'));
+    // 50 euro signs alone are 150 bytes; the body's char length is only 50.
+    // The full block is 163 chars but 263 UTF-8 bytes, so a byte count must
+    // exceed the old char-count size (163). 200 is unreachable by char counting.
+    expect(result.emails[0].size).toBeGreaterThan(200);
+  });
+});

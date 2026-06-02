@@ -14,6 +14,12 @@ import type {
 } from '../types';
 import { cleanEmailAddress, normalizeSubject } from '../utils';
 
+/** UTF-8 byte length of a string, cross-platform (Buffer in Node, TextEncoder in browser). */
+function byteLength(str: string): number {
+  if (typeof Buffer !== 'undefined') return Buffer.byteLength(str, 'utf-8');
+  return new TextEncoder().encode(str).length;
+}
+
 /**
  * Parser for Outlook for Mac (.olm) archive files
  * 
@@ -392,7 +398,7 @@ export class OLMParser {
       body: body || preview || '',
       htmlBody: htmlBody || undefined,
       attachments: [],
-      size: xmlContent.length,
+      size: byteLength(xmlContent),
       isRead,
       isStarred: false,
       folderId: 'inbox',
@@ -440,7 +446,7 @@ export class OLMParser {
       date: parsed && !isNaN(parsed.getTime()) ? parsed : null,
       body,
       attachments: [],
-      size: xmlContent.length,
+      size: byteLength(xmlContent),
       isRead: false,
       isStarred: false,
       folderId: 'inbox',
