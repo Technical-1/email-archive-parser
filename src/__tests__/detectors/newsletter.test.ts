@@ -591,3 +591,41 @@ describe('NewsletterDetector null dates', () => {
   });
 });
 
+
+describe('NewsletterDetector subdomain false positives', () => {
+  function transactional(sender: string) {
+    return {
+      id: 0,
+      subject: 'Your statement is ready',
+      sender,
+      recipients: ['me@example.com'],
+      date: new Date('2024-01-01T00:00:00Z'),
+      // No marketing body signals at all.
+      body: 'Your monthly statement is now available in online banking.',
+      attachments: [],
+      size: 100,
+      isRead: true,
+      isStarred: false,
+      folderId: 'inbox',
+    } as any;
+  }
+
+  it('does not flag a transactional mail.* subdomain as promotional', () => {
+    const d = new NewsletterDetector();
+    const r = d.detect(transactional('alerts@mail.mybank.com'));
+    expect(r.isPromotional).toBe(false);
+    expect(r.isNewsletter).toBe(false);
+  });
+
+  it('still flags a real marketing blast from a promo subdomain', () => {
+    const d = new NewsletterDetector();
+    const email = {
+      ...transactional('deals@news.shop.com'),
+      subject: 'Save 50% — flash sale ends tonight!',
+      body: 'Limited time. Unsubscribe. Privacy policy. All rights reserved.',
+      htmlBody: '<a href="https://shop.com/unsubscribe">unsubscribe</a>',
+    };
+    const r = d.detect(email);
+    expect(r.isPromotional).toBe(true);
+  });
+});

@@ -145,11 +145,18 @@ export class NewsletterDetector {
       promotionalScore += 10;
     }
 
-    // Check sender domain
+    // Sender domain. Bare subdomain markers (mail./news./updates./...) are only
+    // WEAK evidence: they corroborate marketing scores but cannot, on their own,
+    // push an otherwise-transactional email over the threshold. Full known
+    // promotional domains (e.g. em.ebay.com) remain strong.
     const domain = extractDomain(sender);
-    if (this.isPromotionalSenderDomain(domain)) {
+    const senderSignal = this.classifyPromotionalSender(domain);
+    if (senderSignal === 'strong') {
       newsletterScore += 20;
       promotionalScore += 20;
+    } else if (senderSignal === 'weak' && marketingPatternMatches >= 1) {
+      newsletterScore += 10;
+      promotionalScore += 10;
     }
 
     // Extract unsubscribe link
@@ -177,29 +184,27 @@ export class NewsletterDetector {
   }
 
   /**
-   * Decide whether a sender domain looks like a marketing/newsletter sender.
-   * Entries in knownPromotionalDomains ending in '.' are subdomain markers
-   * (e.g. 'newsletter.') matched only at the START of the domain so they sit
-   * on a label boundary; the rest are full domains matched boundary-safely via
-   * matchKnownDomain. This avoids the old `domain.includes('mail.')` bug that
-   * flagged gmail.com/hotmail.com as promotional because they contain the
-   * substring "mail.".
-   * @param domain - Sender domain (e.g. from extractDomain)
-   * @returns true if the domain is a known promotional/newsletter sender
+   * Classify a sender domain's promotional signal strength.
+   * - 'strong': a full known promotional domain (matched boundary-safely).
+   * - 'weak': only a bare subdomain marker (mail./news./...) matched at the
+   *   label boundary — corroborating evidence, not decisive on its own.
+   * - 'none': no marker.
    */
-  private isPromotionalSenderDomain(domain: string): boolean {
+  private classifyPromotionalSender(domain: string): 'strong' | 'weak' | 'none' {
     const d = domain.trim().toLowerCase();
-    if (!d) return false;
+    if (!d) return 'none';
 
     const fullDomains: Record<string, true> = {};
+    let weak = false;
     for (const entry of this.knownPromotionalDomains) {
       if (entry.endsWith('.')) {
-        if (d.startsWith(entry)) return true;
+        if (d.startsWith(entry)) weak = true;
       } else {
         fullDomains[entry] = true;
       }
     }
-    return matchKnownDomain(d, fullDomains) !== null;
+    if (matchKnownDomain(d, fullDomains) !== null) return 'strong';
+    return weak ? 'weak' : 'none';
   }
 
   /**
