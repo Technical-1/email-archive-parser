@@ -500,7 +500,7 @@ export class OLMParser {
                 email: cleanEmailAddress(email),
                 phone: phone || undefined,
                 emailCount: 0,
-                lastEmailDate: new Date(),
+                lastEmailDate: null,
               });
             }
           });
@@ -551,7 +551,7 @@ export class OLMParser {
           email: cleanEmailAddress(email),
           phone: phone || undefined,
           emailCount: 0,
-          lastEmailDate: new Date(),
+          lastEmailDate: null,
         });
       }
     }
