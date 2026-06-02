@@ -536,10 +536,9 @@ describe('SubscriptionDetector unknown frequency', () => {
       body: 'Thank you for subscribing. Your fee is $99.00.',
     });
     const subs = d.detectBatch([{ ...email, id: 0 }]);
-    if (subs.length > 0) {
-      expect(subs[0].frequency).toBeUndefined();
-      expect(subs[0].monthlyAmount).toBeUndefined();
-    }
+    expect(subs.length).toBeGreaterThan(0);
+    expect(subs[0].frequency).toBeUndefined();
+    expect(subs[0].monthlyAmount).toBeUndefined();
   });
 });
 
